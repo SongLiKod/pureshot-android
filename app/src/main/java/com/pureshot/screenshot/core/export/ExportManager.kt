@@ -151,7 +151,7 @@ object ExportManager {
         val compressFormat = when (format) {
             "png" -> Bitmap.CompressFormat.PNG
             "jpg", "jpeg" -> Bitmap.CompressFormat.JPEG
-            else -> if (Build.VERSION >= Build.VERSION_CODES.R)
+            else -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
                 Bitmap.CompressFormat.WEBP_LOSSY
             else Bitmap.CompressFormat.WEBP
         }

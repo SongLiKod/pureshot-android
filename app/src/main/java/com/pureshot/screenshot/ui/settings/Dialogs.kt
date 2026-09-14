@@ -15,7 +15,7 @@ object Dialogs {
 
     /** Issue3：低版本（Android10-13）应用截图降级方案提示弹窗 */
     fun appModeNotice(ctx: Context, onGo: () -> Unit) {
-        if (Build.VERSION >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             onGo()
             return
         }

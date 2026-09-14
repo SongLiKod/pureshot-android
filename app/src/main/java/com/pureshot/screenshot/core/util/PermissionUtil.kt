@@ -15,7 +15,7 @@ object PermissionUtil {
     fun hasOverlay(ctx: Context): Boolean = Settings.canDrawOverlays(ctx)
 
     fun hasNotification(ctx: Context): Boolean =
-        if (Build.VERSION >= Build.VERSION_CODES.TIRAMISU) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ctx.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) ==
                 android.content.pm.PackageManager.PERMISSION_GRANTED
         } else {
@@ -23,7 +23,7 @@ object PermissionUtil {
         }
 
     fun hasMediaRead(ctx: Context): Boolean {
-        val perm = if (Build.VERSION >= Build.VERSION_CODES.TIRAMISU)
+        val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
             android.Manifest.permission.READ_MEDIA_IMAGES
         else android.Manifest.permission.READ_EXTERNAL_STORAGE
         return ctx.checkSelfPermission(perm) == android.content.pm.PackageManager.PERMISSION_GRANTED

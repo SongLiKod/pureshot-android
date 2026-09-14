@@ -61,7 +61,7 @@ class FloatingBallService : Service() {
             val view = ImageView(this).apply {
                 setImageResource(R.drawable.ic_ball)
                 setBackgroundColor(
-                    android.graphics.ColorUtils.setAlphaComponent(
+                    androidx.core.graphics.ColorUtils.setAlphaComponent(
                         androidx.core.content.ContextCompat.getColor(this@FloatingBallService, R.color.brand_primary), 0xE6
                     )
                 )
@@ -125,7 +125,7 @@ class FloatingBallService : Service() {
         .build()
 
     private fun createChannel() {
-        if (Build.VERSION >= Build.VERSION_CODES.O) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (nm.getNotificationChannel(CHANNEL_ID) == null) {
                 nm.createNotificationChannel(

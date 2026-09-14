@@ -185,7 +185,9 @@ class LayerEditorView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val d = doc ?: return
-        if (fit.values[0] == 0f || d.base.width != lastBaseW || d.base.height != lastBaseH) recomputeFit()
+        val fv = FloatArray(9)
+        fit.getValues(fv)
+        if (fv[0] == 0f || d.base.width != lastBaseW || d.base.height != lastBaseH) recomputeFit()
         lastBaseW = d.base.width
         lastBaseH = d.base.height
         canvas.save()

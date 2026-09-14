@@ -51,7 +51,7 @@ class CaptureService : Service() {
         startInForeground()
         if (intent?.action == ACTION_CONSENT) {
             val code = intent.getIntExtra(EXTRA_CODE, 0)
-            val data: Intent? = if (Build.VERSION >= Build.VERSION_CODES.TIRAMISU)
+            val data: Intent? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
                 intent.getParcelableExtra(EXTRA_DATA, Intent::class.java)
             else @Suppress("DEPRECATION") intent.getParcelableExtra(EXTRA_DATA)
             if (data != null) createProjection(code, data)
@@ -88,7 +88,7 @@ class CaptureService : Service() {
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
-        if (Build.VERSION >= Build.VERSION_CODES.Q) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             startForeground(NOTIF_ID, notif, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         } else {
             startForeground(NOTIF_ID, notif)

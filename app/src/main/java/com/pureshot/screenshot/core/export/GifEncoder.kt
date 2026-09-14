@@ -41,8 +41,11 @@ class GifEncoder {
         val counts = HashMap<Int, LongArray>()
         for (c in px) {
             val key = bucketKey(c)
-            val e = counts.getOrPut(key) { LongArray(4) }
-            e[0]++; e[1] += (c shr 16 and 0xFF); e[2] += (c shr 8 and 0xFF); e[3] += c and 0xFF
+            val bucket = counts.getOrPut(key) { LongArray(4) }
+            bucket[0] = bucket[0] + 1L
+            bucket[1] = bucket[1] + (c shr 16 and 0xFF).toLong()
+            bucket[2] = bucket[2] + (c shr 8 and 0xFF).toLong()
+            bucket[3] = bucket[3] + (c and 0xFF).toLong()
         }
         val top = counts.entries.sortedByDescending { it.value[0] }.take(256)
         val palette = ByteArray(768)

@@ -147,7 +147,7 @@ class SettingsFragment : Fragment() {
         }
         clickRow(getString(R.string.battery_title), getString(R.string.battery_desc)) {
             try {
-                val i = if (Build.VERSION >= Build.VERSION_CODES.M)
+                val i = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
                     Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
                 else Intent(Settings.ACTION_SETTINGS)
                 startActivity(i)
@@ -231,13 +231,13 @@ class SettingsFragment : Fragment() {
 
         sectionTitle(getString(R.string.set_perm))
         permRow(getString(R.string.perm_media), getString(R.string.perm_media_desc), PermissionUtil.hasMediaRead(requireContext())) {
-            val perm = if (Build.VERSION >= Build.VERSION_CODES.TIRAMISU)
+            val perm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
                 android.Manifest.permission.READ_MEDIA_IMAGES
             else android.Manifest.permission.READ_EXTERNAL_STORAGE
             requestMedia.launch(perm)
         }
         permRow(getString(R.string.perm_notif), getString(R.string.perm_notif_desc), PermissionUtil.hasNotification(requireContext())) {
-            if (Build.VERSION >= Build.VERSION_CODES.TIRAMISU) requestNotif.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) requestNotif.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
         permRow(getString(R.string.perm_overlay), getString(R.string.perm_overlay_desc), PermissionUtil.hasOverlay(requireContext())) {
             try { startActivity(PermissionUtil.overlayIntent(requireContext())) } catch (e: Throwable) {}

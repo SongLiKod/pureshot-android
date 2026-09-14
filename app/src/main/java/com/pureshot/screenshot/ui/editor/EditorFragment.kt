@@ -12,6 +12,7 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -109,7 +110,7 @@ class EditorFragment : Fragment() {
             contentDescription = getString(R.string.undo)
             background = null
             setPadding(pad(), pad(), pad(), pad())
-            scaleType = ImageButton.ScaleType.CENTER_INSIDE
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
             layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
             setOnClickListener {
                 if (!canvas.undo()) ErrorReporter.toastRes(requireContext(), R.string.undo_empty)
@@ -121,7 +122,7 @@ class EditorFragment : Fragment() {
             contentDescription = getString(R.string.redo)
             background = null
             setPadding(pad(), pad(), pad(), pad())
-            scaleType = ImageButton.ScaleType.CENTER_INSIDE
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
             layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
             setOnClickListener {
                 if (!canvas.redo()) ErrorReporter.toastRes(requireContext(), R.string.redo_empty)
@@ -135,7 +136,7 @@ class EditorFragment : Fragment() {
             contentDescription = getString(R.string.export)
             background = null
             setPadding(pad(), pad(), pad(), pad())
-            scaleType = ImageButton.ScaleType.CENTER_INSIDE
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
             setOnClickListener { showExportDialog() }
         }
         val entries = listOf(
@@ -156,7 +157,7 @@ class EditorFragment : Fragment() {
                 contentDescription = toolName(tool)
                 background = null
                 setPadding(pad(), pad(), pad(), pad())
-                scaleType = ImageButton.ScaleType.CENTER_INSIDE
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
                 layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
                 setOnClickListener { selectTool(tool) }
             }
@@ -609,7 +610,7 @@ class EditorFragment : Fragment() {
             contentDescription = desc
             setPadding(dp(10), dp(10), dp(10), dp(10))
             background = chipDrawable(selected)
-            scaleType = ImageButton.ScaleType.CENTER_INSIDE
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
             setOnClickListener { onClick() }
         }
         b.layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(8) }
@@ -646,7 +647,7 @@ class EditorFragment : Fragment() {
     private fun chipDrawable(selected: Boolean): android.graphics.drawable.Drawable =
         android.graphics.drawable.GradientDrawable().apply {
             cornerRadius = dp(16).toFloat()
-            setColor(android.graphics.ColorUtils.setAlphaComponent(brandColor(), if (selected) 0x33 else 0x22))
+            setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(brandColor(), if (selected) 0x33 else 0x22))
             setStroke(dp(1), if (selected) brandColor() else 0x00000000)
         }
 

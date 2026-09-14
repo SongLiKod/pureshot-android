@@ -51,8 +51,8 @@ object FoldableUtil {
 
     /** 设备是否具备折叠能力（用于设置页说明） */
     fun isFoldableDevice(ctx: Context): Boolean = try {
-        ctx.packageManager.hasFeature("android.software.folding") ||
-            ctx.packageManager.hasFeature("android.hardware.sensor.hinge_angle")
+        ctx.packageManager.hasSystemFeature("android.software.folding") ||
+            ctx.packageManager.hasSystemFeature("android.hardware.sensor.hinge_angle")
     } catch (e: Throwable) {
         false
     }

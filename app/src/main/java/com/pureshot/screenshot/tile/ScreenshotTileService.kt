@@ -17,7 +17,7 @@ class ScreenshotTileService : TileService() {
         try {
             val intent = Intent(this, ModeChooserActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            if (Build.VERSION >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 startActivityAndCollapse(
                     android.app.PendingIntent.getActivity(
                         this, 0, intent,
@@ -31,7 +31,7 @@ class ScreenshotTileService : TileService() {
         } catch (e: Throwable) { /* 磁贴异常容错 */ }
     }
 
-    override fun onLongClick(event: android.view.MotionEvent?): Boolean {
+    override fun onLongClick(event: android.view.MotionEvent): Boolean {
         try {
             val i = Intent(this, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)

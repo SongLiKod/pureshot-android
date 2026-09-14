@@ -87,15 +87,15 @@ class PreviewActivity : AppCompatActivity() {
         ErrorReporter.toast(this, getString(R.string.ocr_running))
         OcrHelper.recognize(
             bmp,
-            onResult = { text ->
+            onResult = { ocrText ->
                 if (isFinishing) return@recognize
-                if (text.isBlank()) {
+                if (ocrText.isBlank()) {
                     ErrorReporter.toastRes(this, R.string.ocr_empty)
                     return@recognize
                 }
                 val scroll = android.widget.ScrollView(this)
                 val tv = android.widget.TextView(this).apply {
-                    text = text
+                    text = ocrText
                     setTextIsSelectable(true)
                     textSize = 14f
                     setPadding(dp(24), dp(12), dp(24), dp(12))
@@ -106,7 +106,7 @@ class PreviewActivity : AppCompatActivity() {
                     .setView(scroll)
                     .setPositiveButton(R.string.ocr_copy) { _, _ ->
                         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        cm.setPrimaryClip(android.content.ClipData.newPlainText("ocr", text))
+                        cm.setPrimaryClip(android.content.ClipData.newPlainText("ocr", ocrText))
                         ErrorReporter.toast(this, getString(R.string.ocr_copied))
                     }
                     .setNegativeButton(R.string.close, null)
