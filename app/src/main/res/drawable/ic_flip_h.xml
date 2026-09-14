@@ -4,5 +4,5 @@
     <path android:fillColor="@color/icon_tint"
         android:pathData="M12,4l-6,6h4v8h4v-8h4l-6,-6zM12,2l8,8h-5v10h-6V10H4l8,-8z" />
     <path android:strokeColor="@color/icon_tint" android:strokeWidth="1.5"
-        android:strokeDashArray="2 2" android:pathData="M12,2v20" />
+        android:strokeDashWidth="2" android:strokeDashGap="2" android:pathData="M12,2v20" />
 </vector>
