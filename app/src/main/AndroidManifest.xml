@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 必选：媒体存储（图片保存/读取/导出），仅按需使用 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- 可选：悬浮窗（悬浮球快捷触发/截图悬浮预览） -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- 通知：截图结果通知展示 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 截图捕获前台服务（MediaProjection，用完即释放，非常驻） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- 后台保活：厂商电池优化友好引导 -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- 明确不申请：麦克风、位置、通讯录、网络、广告追踪等一切无关权限 -->
+
+    <queries>
+        <package android:name="com.android.settings" />
+    </queries>
+
+    <application
+        android:name=".PureShotApp"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.PureShot"
+        tools:targetApi="34">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 自动化 API：外部 Intent 触发截图（仍需按需授权媒体投影，合规） -->
+        <activity
+            android:name=".api.CaptureApiActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:theme="@style/Theme.PureShot.Translucent">
+            <intent-filter>
+                <action android:name="com.pureshot.screenshot.action.CAPTURE" />
+                <action android:name="com.pureshot.screenshot.action.CAPTURE_FULL" />
+                <action android:name="com.pureshot.screenshot.action.CAPTURE_APP" />
+                <action android:name="com.pureshot.screenshot.action.CAPTURE_REGION" />
+                <action android:name="com.pureshot.screenshot.action.CAPTURE_DELAY" />
+                <action android:name="com.pureshot.screenshot.action.CAPTURE_LONG" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- 透明授权中转页：按需申请 MediaProjection，单次捕获 -->
+        <activity
+            android:name=".core.capture.PermissionActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:theme="@style/Theme.PureShot.Translucent" />
+
+        <!-- 截图模式选择弹窗（磁贴/悬浮球触发） -->
+        <activity
+            android:name=".core.capture.ModeChooserActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:theme="@style/Theme.PureShot.Dialog" />
+
+        <!-- 区域截图选区页 -->
+        <activity
+            android:name=".core.capture.RegionCaptureActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:theme="@style/Theme.PureShot.Fullscreen" />
+
+        <!-- 长截图页 -->
+        <activity
+            android:name=".ui.longshot.LongShotActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:theme="@style/Theme.PureShot.Fullscreen" />
+
+        <!-- 截图后悬浮预览/快捷交互页 -->
+        <activity
+            android:name=".ui.preview.PreviewActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""
+            android:theme="@style/Theme.PureShot" />
+
+        <!-- 捕获前台服务：持有 MediaProjection，单次捕获用完立即释放 -->
+        <service
+            android:name=".core.capture.CaptureService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
+
+        <!-- 悬浮球触发服务（可选） -->
+        <service
+            android:name=".ui.floating.FloatingBallService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="screenshot_quick_trigger" />
+        </service>
+
+        <!-- 通知栏磁贴：单击模式选择 / 长按进入应用 -->
+        <service
+            android:name=".tile.ScreenshotTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile"
+            android:label="@string/tile_name"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- 可选无障碍服务：仅用于自动滚动长截图，默认关闭 -->
+        <service
+            android:name=".core.longshot.LongShotAccessibilityService"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>

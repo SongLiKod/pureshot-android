@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark 语义色：深绿为主强调色，浅绿辅助点缀 -->
+    <color name="app_primary">@color/brand_dark_green</color>
+    <color name="app_on_primary">#FFFFFF</color>
+    <color name="app_primary_container">#1F4A36</color>
+    <color name="app_on_primary_container">#CCF3E2</color>
+    <color name="app_secondary">@color/brand_light_green</color>
+    <color name="app_on_secondary">#00341D</color>
+    <color name="app_background">#121212</color>
+    <color name="app_on_background">#FFFFFF</color>
+    <color name="app_surface">#1E1F1E</color>
+    <color name="app_surface_variant">#2A2D2B</color>
+    <color name="app_on_surface">#FFFFFF</color>
+    <color name="app_on_surface_variant">#B9C4BE</color>
+    <color name="app_outline">#5C6761</color>
+    <color name="app_divider">#333735</color>
+    <color name="icon_tint">#B3FFFFFF</color>
+    <color name="editor_canvas_bg">#121212</color>
+</resources>

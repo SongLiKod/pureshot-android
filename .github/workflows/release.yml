@@ -1,0 +1,186 @@
+name: Release Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (e.g., v1.1.0). Leave empty to build without releasing.'
+        required: false
+        type: string
+      release_name:
+        description: 'Release name (optional, defaults to tag)'
+        required: false
+        type: string
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Check signing secrets
+        if: ${{ github.event.inputs.tag != '' }}
+        run: |
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "::error::Secret KEYSTORE_BASE64 is not configured."
+            exit 1
+          fi
+          if [ -z "${{ secrets.KEYSTORE_PASSWORD }}" ]; then
+            echo "::error::Secret KEYSTORE_PASSWORD is not configured."
+            exit 1
+          fi
+          if [ -z "${{ secrets.KEY_ALIAS }}" ]; then
+            echo "::error::Secret KEY_ALIAS is not configured."
+            exit 1
+          fi
+          if [ -z "${{ secrets.KEY_PASSWORD }}" ]; then
+            echo "::error::Secret KEY_PASSWORD is not configured."
+            exit 1
+          fi
+          echo "All signing secrets are configured."
+
+      - name: Decode Keystore
+        if: ${{ github.event.inputs.tag != '' }}
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | tr -d ' \t\r\n' | base64 --decode > app/pureshot-keystore.jks || true
+          SIZE=$(wc -c < app/pureshot-keystore.jks)
+          echo "Decoded keystore size: $SIZE bytes"
+          if [ "$SIZE" -eq 0 ]; then
+            echo "::error::Decoded keystore is empty. Check the KEYSTORE_BASE64 secret."
+            exit 1
+          fi
+          MAGIC=$(xxd -p -l 4 app/pureshot-keystore.jks)
+          echo "Keystore magic bytes: $MAGIC"
+          if [ "$MAGIC" = "feedfeed" ]; then
+            echo "Keystore format: JKS"
+          else
+            echo "::warning::Keystore does not look like JKS (magic != feedfeed). It may be PKCS12. Regenerate with '-storetype JKS' if signing fails."
+          fi
+
+      - name: Create keystore.properties
+        if: ${{ github.event.inputs.tag != '' }}
+        run: |
+          printf 'storeFile=pureshot-keystore.jks\n' > keystore.properties
+          printf 'storePassword=%s\n' "${{ secrets.KEYSTORE_PASSWORD }}" >> keystore.properties
+          printf 'keyAlias=%s\n' "${{ secrets.KEY_ALIAS }}" >> keystore.properties
+          printf 'keyPassword=%s\n' "${{ secrets.KEY_PASSWORD }}" >> keystore.properties
+
+      - name: Build APK
+        run: |
+          if [ -n "${{ github.event.inputs.tag }}" ]; then
+            echo "Tag provided (${{ github.event.inputs.tag }}): building signed release APK"
+            ./gradlew assembleRelease
+          else
+            echo "No tag: building debug APK for compile test"
+            ./gradlew assembleDebug
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PureShot-build
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: build
+    if: ${{ github.event.inputs.tag != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: PureShot-build
+          path: artifact
+
+      - name: Prepare APK for release
+        run: |
+          mkdir -p apk
+          echo "Downloaded artifact tree:"
+          find artifact -type f -print
+          mapfile -t APKS < <(find artifact -name '*.apk' -type f | sort)
+          if [ ${#APKS[@]} -eq 0 ]; then
+            echo "::error::No APK found in downloaded artifact"
+            exit 1
+          fi
+          TAG="${{ github.event.inputs.tag }}"
+          for SRC in "${APKS[@]}"; do
+            BASE=$(basename "$SRC")
+            if [[ "$BASE" == *release* ]]; then
+              DEST="apk/PureShot-${TAG}.apk"
+            elif [[ "$BASE" == *debug* ]]; then
+              DEST="apk/PureShot-${TAG}-debug.apk"
+            else
+              DEST="apk/${BASE}"
+            fi
+            cp "$SRC" "$DEST"
+            echo "Prepared $DEST from $SRC"
+          done
+          ls -lh apk/
+
+      - name: Determine release name
+        id: release_info
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          NAME="${{ github.event.inputs.release_name }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "name=${NAME:-$TAG}" >> $GITHUB_OUTPUT
+
+      - name: Create Git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a ${{ steps.release_info.outputs.tag }} -m "Release ${{ steps.release_info.outputs.tag }}" || true
+          git push origin ${{ steps.release_info.outputs.tag }} || true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.release_info.outputs.tag }}
+          name: ${{ steps.release_info.outputs.name }}
+          prerelease: ${{ github.event.inputs.prerelease }}
+          files: apk/*.apk
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

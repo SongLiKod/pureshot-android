@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 固定品牌色值（全局唯一，硬编码，不随系统色变） -->
+    <color name="brand_primary">#009458</color>
+    <color name="brand_light_green">#34B97C</color>
+    <color name="brand_dark_green">#007244</color>
+
+    <!-- Light 语义色 -->
+    <color name="app_primary">@color/brand_primary</color>
+    <color name="app_on_primary">#FFFFFF</color>
+    <color name="app_primary_container">#CCF3E2</color>
+    <color name="app_on_primary_container">#00341D</color>
+    <color name="app_secondary">@color/brand_light_green</color>
+    <color name="app_on_secondary">#FFFFFF</color>
+    <color name="app_background">#FFFFFF</color>
+    <color name="app_on_background">#333333</color>
+    <color name="app_surface">#FFFFFF</color>
+    <color name="app_surface_variant">#F2F5F3</color>
+    <color name="app_on_surface">#333333</color>
+    <color name="app_on_surface_variant">#5F6B65</color>
+    <color name="app_outline">#C3CCC7</color>
+    <color name="app_divider">#E4E8E6</color>
+    <color name="icon_tint">#8A333333</color>
+    <color name="editor_canvas_bg">#ECEEEC</color>
+    <color name="capture_surface">#1A1C1B</color>
+    <color name="scrim">#66000000</color>
+
+    <!-- 标注通用配色 -->
+    <color name="anno_red">#E53935</color>
+    <color name="anno_orange">#FB8C00</color>
+    <color name="anno_yellow">#FDD835</color>
+    <color name="anno_green">#43A047</color>
+    <color name="anno_blue">#1E88E5</color>
+    <color name="anno_black">#212121</color>
+    <color name="anno_white">#FFFFFF</color>
+    <color name="anno_highlight">#55FFEB3B</color>
+    <color name="preview_thumb_bg">#222222</color>
+</resources>
