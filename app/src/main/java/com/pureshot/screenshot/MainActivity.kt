@@ -2,6 +2,7 @@ package com.pureshot.screenshot
 
 import android.content.Intent
 import android.os.Bundle
+import android.service.quicksettings.TileService
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.pureshot.screenshot.ui.editor.EditorFragment
@@ -58,7 +59,9 @@ class MainActivity : AppCompatActivity() {
             editorShown = true
             return true
         }
-        if (intent?.getBooleanExtra(EXTRA_OPEN_SETTINGS, false) == true) {
+        val openSettings = intent?.getBooleanExtra(EXTRA_OPEN_SETTINGS, false) == true ||
+            intent?.action == TileService.ACTION_QS_TILE_PREFERENCES
+        if (openSettings) {
             findViewById<BottomNavigationView>(R.id.bottom_nav).selectedItemId = R.id.nav_settings
             return true
         }

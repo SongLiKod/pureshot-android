@@ -42,6 +42,11 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- 磁贴长按 → 进入应用（系统公开机制，替代隐藏的 onLongClick） -->
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
 
         <!-- 自动化 API：外部 Intent 触发截图（仍需按需授权媒体投影，合规） -->
