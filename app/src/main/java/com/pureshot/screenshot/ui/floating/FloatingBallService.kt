@@ -83,11 +83,7 @@ class FloatingBallService : Service() {
             val size = (44 * resources.displayMetrics.density).toInt()
             val view = ImageView(this).apply {
                 setImageResource(R.drawable.ic_ball)
-                setBackgroundColor(
-                    androidx.core.graphics.ColorUtils.setAlphaComponent(
-                        androidx.core.content.ContextCompat.getColor(this@FloatingBallService, R.color.brand_primary), 0xE6
-                    )
-                )
+                setBackgroundResource(R.drawable.bg_floating_ball)
                 setPadding(size / 4, size / 4, size / 4, size / 4)
                 adjustViewBounds = true
             }
