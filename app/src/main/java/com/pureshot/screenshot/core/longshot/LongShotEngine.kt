@@ -80,7 +80,7 @@ class LongShotEngine(
         val (w, h, dpi) = ScreenCapturer.displaySize(ctx)
         display = projection.createVirtualDisplay(
             "pureshot-longshot", frameWidth, frameHeight, dpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION,
+            DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
             r.surface, null, null
         )
     }

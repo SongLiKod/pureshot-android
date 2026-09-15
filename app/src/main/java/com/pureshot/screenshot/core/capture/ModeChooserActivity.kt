@@ -32,7 +32,6 @@ class ModeChooserActivity : AppCompatActivity() {
             row.findViewById<android.widget.TextView>(R.id.mode_title).setText(titleRes)
             row.findViewById<android.widget.TextView>(R.id.mode_desc).visibility = android.view.View.GONE
             (row as MaterialCardView).setOnClickListener {
-                if (mode != CaptureMode.DELAY && Dialogs.maybePromptFastCapture(this)) return@setOnClickListener
                 // 先关闭模式选择悬浮层，等待其窗口完全移除后再截图，避免自身被截入画面
                 CaptureManager.request(
                     applicationContext, mode, CaptureManager.UI_DISMISS_SETTLE_MS

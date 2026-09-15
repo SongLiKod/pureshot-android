@@ -6,7 +6,6 @@ import android.graphics.PixelFormat
 import android.graphics.Typeface
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 import android.view.Gravity
 import android.view.WindowManager
 import android.widget.TextView
@@ -15,19 +14,14 @@ import com.pureshot.screenshot.core.util.ErrorReporter
 
 /**
  * 延迟截图倒计时悬浮提示：倒计时结束瞬间隐藏自身再捕获，确保提示不出现在截图中。
- * 无悬浮窗权限时静默走纯延时捕获。
+ * 仅在具备悬浮窗权限时由 CaptureManager 调用；无权限场景由其走"先授权后倒计时"路径。
  */
 object CountdownOverlay {
 
     private val main = Handler(Looper.getMainLooper())
 
     fun start(ctx: Context, seconds: Int) {
-        val app = ctx.applicationContext
-        if (!Settings.canDrawOverlays(app)) {
-            main.postDelayed({ CaptureManager.request(app, CaptureMode.FULL) }, seconds * 1000L)
-            return
-        }
-        main.post { show(app, seconds.coerceIn(1, 30)) }
+        main.post { show(ctx.applicationContext, seconds.coerceIn(1, 30)) }
     }
 
     private fun show(ctx: Context, total: Int) {

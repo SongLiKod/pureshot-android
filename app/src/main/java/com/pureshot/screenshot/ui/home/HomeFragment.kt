@@ -87,7 +87,6 @@ class HomeFragment : Fragment() {
             row.findViewById<TextView>(R.id.mode_title).setText(info.first)
             row.findViewById<TextView>(R.id.mode_desc).setText(info.second)
             (row as MaterialCardView).setOnClickListener {
-                if (mode != CaptureMode.DELAY && Dialogs.maybePromptFastCapture(requireContext())) return@setOnClickListener
                 if (mode == CaptureMode.APP) {
                     Dialogs.appModeNotice(requireContext()) { startFromApp(mode) }
                 } else {
@@ -106,17 +105,16 @@ class HomeFragment : Fragment() {
     }
 
     /**
-     * 从应用自身界面发起截图：先把应用退到后台露出上一层界面，
-     * 待窗口切换完成后再捕获，避免把本应用界面（含底部导航）截入画面。
+     * 从应用自身界面发起截图：
+     * - request 返回 true（进入授权流程）：保持前台，授权完成后由授权页自行退后台；
+     * - 返回 false（直接进入捕获流程）：立即退后台，露出上一层界面被截入画面。
      */
     private fun startFromApp(mode: CaptureMode) {
         val ctx = requireContext().applicationContext
-        if (mode == CaptureMode.LONG) {
-            CaptureManager.request(ctx, mode)
-            return
+        val needConsent = CaptureManager.request(ctx, mode, CaptureManager.UI_DISMISS_SETTLE_MS)
+        if (!needConsent) {
+            requireActivity().moveTaskToBack(true)
         }
-        requireActivity().moveTaskToBack(true)
-        CaptureManager.request(ctx, mode, CaptureManager.UI_DISMISS_SETTLE_MS)
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()

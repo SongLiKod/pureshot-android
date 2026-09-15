@@ -1,56 +1,71 @@
 package com.pureshot.screenshot.core.capture
 
-import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
-import android.media.ImageReader
+import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
+import android.media.ImageReader
+import android.media.projection.MediaProjection
 import android.os.Handler
 import android.os.Looper
-import android.util.DisplayMetrics
-import android.view.WindowManager
-import com.pureshot.screenshot.core.util.ErrorReporter
+import android.util.Log
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.nio.ByteBuffer
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * 单次屏幕捕获：VirtualDisplay + ImageReader，捕获完成立即释放，无常驻。
- * 适配 API29-34，高版本 API 均做版本判断，低版本自动降级。
+ * 会话级捕获引擎。
+ *
+ * 问题：逐次「建显示→抓帧→释放→再重建」在 MIUI 等 ROM 会终止整个媒体投影会话
+ * （表现为第二次点击时"屏幕共享"结束、截图失败）。
+ *
+ * 方案：一次授权只创建【一个】常驻 VirtualDisplay；每次抓取通过 setSurface()
+ * 换绑新 Surface 强制推送当前帧（静态画面同样能取到最新一帧）。会话结束才释放显示。
  */
-object ScreenCapturer {
+class CaptureSession(
+    private val projection: MediaProjection,
+    private var width: Int,
+    private var height: Int,
+    private val dpi: Int
+) {
 
-    fun displaySize(ctx: Context): Triple<Int, Int, Int> {
-        val wm = ctx.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        return if (android.os.Build.VERSION.SDK_INT >= 30) {
-            val b = wm.currentWindowMetrics.bounds
-            Triple(b.width(), b.height(), ctx.resources.displayMetrics.densityDpi)
-        } else {
-            @Suppress("DEPRECATION")
-            val metrics = DisplayMetrics()
-            @Suppress("DEPRECATION")
-            wm.defaultDisplay.getRealMetrics(metrics)
-            Triple(metrics.widthPixels, metrics.heightPixels, metrics.densityDpi)
-        }
+    private var display: VirtualDisplay? = null
+    private val handler = Handler(Looper.getMainLooper())
+
+    /** 尺寸变化（屏幕旋转等）时重建显示 */
+    fun isSizeChanged(w: Int, h: Int): Boolean = display == null || w != width || h != height
+
+    fun recreate(w: Int, h: Int) {
+        width = w
+        height = h
+        close()
+        open()
     }
 
-    suspend fun capture(ctx: Context): Bitmap = suspendCancellableCoroutine { cont ->
-        val (w, h, dpi) = displaySize(ctx)
-        val projection = CaptureManager.projection
-            ?: throw IllegalStateException("MediaProjection 未就绪")
-        android.util.Log.d("PureShot", "screen capture start: ${w}x$h dpi=$dpi")
-        val reader = ImageReader.newInstance(w, h, android.graphics.PixelFormat.RGBA_8888, 2)
-        var display: VirtualDisplay? = null
-        val handler = Handler(Looper.getMainLooper())
+    fun open() {
+        if (display != null) return
+        display = projection.createVirtualDisplay(
+            "pureshot-session", width, height, dpi,
+            DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
+            null, null, null
+        )
+        Log.d("PureShot", "capture session open: ${width}x${height} dpi=$dpi")
+    }
+
+    /** 抓取一帧当前屏幕：换绑新 Surface 强制推送，等待首帧，读位图后释放 ImageReader（不释放显示） */
+    suspend fun snapshot(): Bitmap = suspendCancellableCoroutine { cont ->
+        val d = display ?: run {
+            cont.resumeWithException(IllegalStateException("capture session closed"))
+            return@suspendCancellableCoroutine
+        }
+        val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
         var resumed = false
         val timeout = Runnable {
             if (!resumed) {
                 resumed = true
-                android.util.Log.e("PureShot", "screen capture timeout (no frame in 6s)")
+                Log.e("PureShot", "snapshot timeout")
                 reader.close()
-                display?.release()
                 cont.resumeWithException(IllegalStateException("捕获超时"))
             }
         }
@@ -62,29 +77,24 @@ object ScreenCapturer {
                 val bmp = fromImage(image)
                 image.close()
                 resumed = true
-                android.util.Log.d("PureShot", "screen capture frame ok: ${bmp.width}x${bmp.height}")
+                Log.d("PureShot", "snapshot ok: ${bmp.width}x${bmp.height}")
                 handler.removeCallbacks(timeout)
-                display?.release()
                 r.close()
                 cont.resume(bmp)
             } catch (e: Throwable) {
-                android.util.Log.e("PureShot", "screen capture frame parse failed", e)
+                Log.e("PureShot", "snapshot parse failed", e)
                 image.close()
                 resumed = true
                 handler.removeCallbacks(timeout)
-                display?.release()
                 r.close()
                 cont.resumeWithException(e)
             }
         }, handler)
         try {
-            display = projection.createVirtualDisplay(
-                "pureshot-capture", w, h, dpi,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
-                reader.surface, null, null
-            )
+            d.setSurface(reader.surface)
+            Log.d("PureShot", "snapshot: surface rebound")
         } catch (e: Throwable) {
-            android.util.Log.e("PureShot", "createVirtualDisplay failed", e)
+            Log.e("PureShot", "snapshot setSurface failed", e)
             handler.removeCallbacks(timeout)
             reader.close()
             if (!resumed) {
@@ -98,7 +108,6 @@ object ScreenCapturer {
                 resumed = true
                 handler.removeCallbacks(timeout)
             }
-            display?.release()
             reader.close()
         }
     }
@@ -125,5 +134,12 @@ object ScreenCapturer {
             tmp.recycle()
         }
         return out
+    }
+
+    fun close() {
+        try {
+            display?.release()
+        } catch (e: Throwable) { /* 容错 */ }
+        display = null
     }
 }

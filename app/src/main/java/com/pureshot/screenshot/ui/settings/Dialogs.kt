@@ -7,34 +7,11 @@ import android.widget.EditText
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.pureshot.screenshot.R
 import com.pureshot.screenshot.core.Prefs
-import com.pureshot.screenshot.core.util.PermissionUtil
 
 /**
- * 通用对话框：低版本应用截图适配提示、延迟时长选择、ROM 增强合规说明、极速截图引导。
+ * 通用对话框：低版本应用截图适配提示、延迟时长选择、ROM 增强合规说明。
  */
 object Dialogs {
-
-    /**
-     * 首次截图时引导开启无障碍极速截图（Android11+）。
-     * 返回 true 表示本次已弹出引导，调用方应跳过截图流程；返回 false 表示可继续正常截图。
-     */
-    fun maybePromptFastCapture(ctx: Context): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return false
-        if (!Prefs.fastCapture || Prefs.fastCapturePrompted) return false
-        if (PermissionUtil.isAccessibilityEnabled(ctx)) return false
-        Prefs.fastCapturePrompted = true
-        MaterialAlertDialogBuilder(ctx)
-            .setTitle(R.string.fast_capture_notice_title)
-            .setMessage(R.string.fast_capture_notice_msg)
-            .setPositiveButton(R.string.acc_go_settings) { _, _ ->
-                try {
-                    ctx.startActivity(PermissionUtil.accessibilityIntent())
-                } catch (e: Throwable) { /* 容错 */ }
-            }
-            .setNegativeButton(R.string.cancel, null)
-            .show()
-        return true
-    }
 
     /** Issue3：低版本（Android10-13）应用截图降级方案提示弹窗 */
     fun appModeNotice(ctx: Context, onGo: () -> Unit) {
