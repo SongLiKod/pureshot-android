@@ -10,6 +10,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import android.widget.ImageView
 import androidx.core.content.FileProvider
@@ -22,6 +23,24 @@ import kotlin.math.abs
 object FloatingPreview {
 
     private val main = Handler(Looper.getMainLooper())
+
+    @Volatile
+    private var activeView: ImageView? = null
+
+    /** 悬浮预览当前是否显示 */
+    fun isShown(): Boolean = activeView != null
+
+    /** 截图前隐藏悬浮预览，避免上一张缩略图被截入当前画面 */
+    fun hideForCapture() {
+        val v = activeView ?: return
+        main.post { v.visibility = View.INVISIBLE }
+    }
+
+    /** 截图结束后恢复悬浮预览显示 */
+    fun restoreAfterCapture() {
+        val v = activeView ?: return
+        main.post { v.visibility = View.VISIBLE }
+    }
 
     fun show(ctx: Context, thumb: Bitmap, path: String, mode: Int) {
         if (!Settings.canDrawOverlays(ctx)) return
@@ -46,6 +65,12 @@ object FloatingPreview {
                     gravity = Gravity.START or Gravity.CENTER_VERTICAL
                     x = (12 * ctx.resources.displayMetrics.density).toInt()
                 }
+                val remove: () -> Unit = {
+                    try {
+                        wm.removeView(iv)
+                    } catch (e: Throwable) { /* 容错 */ }
+                    if (activeView === iv) activeView = null
+                }
                 var startX = 0f
                 var moved = false
                 iv.setOnTouchListener { _, e ->
@@ -53,10 +78,8 @@ object FloatingPreview {
                         MotionEvent.ACTION_DOWN -> { startX = e.rawX; moved = false }
                         MotionEvent.ACTION_MOVE -> if (abs(e.rawX - startX) > 60) moved = true
                         MotionEvent.ACTION_UP -> {
-                            if (moved) {
-                                wm.removeView(iv)
-                            } else {
-                                wm.removeView(iv)
+                            remove()
+                            if (!moved) {
                                 ctx.startActivity(
                                     Intent(ctx, PreviewActivity::class.java)
                                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -70,7 +93,8 @@ object FloatingPreview {
                     true
                 }
                 wm.addView(iv, params)
-                main.postDelayed({ try { wm.removeView(iv) } catch (e: Throwable) {} }, 6000)
+                activeView = iv
+                main.postDelayed({ remove() }, 6000)
             } catch (e: Throwable) { /* 悬浮预览失败不影响主流程 */ }
         }
     }

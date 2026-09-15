@@ -158,6 +158,7 @@ class LongShotActivity : AppCompatActivity() {
         } catch (e: Throwable) { /* 容错 */ }
         engine = null
         CaptureManager.keepSession = false
+        CaptureManager.restoreOverlays()
         CaptureManager.release()
         finish()
     }

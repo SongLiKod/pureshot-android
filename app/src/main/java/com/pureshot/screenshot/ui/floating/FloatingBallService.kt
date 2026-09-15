@@ -9,10 +9,13 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.View
 import android.view.WindowManager
 import android.widget.ImageView
 import androidx.core.app.NotificationCompat
@@ -40,8 +43,27 @@ class FloatingBallService : Service() {
                 ctx.stopService(Intent(ctx, FloatingBallService::class.java))
             } catch (e: Throwable) { /* 容错 */ }
         }
+
+        /** 悬浮球是否正在显示（截图前用于判断是否需要隐藏） */
+        fun isBallShown(): Boolean = instance?.ball != null
+
+        /** 截图前隐藏悬浮球，避免应用自身叠加窗被截入画面 */
+        fun hideForCapture() {
+            val s = instance ?: return
+            s.main.post { s.ball?.visibility = View.INVISIBLE }
+        }
+
+        /** 截图结束后恢复悬浮球显示 */
+        fun restoreAfterCapture() {
+            val s = instance ?: return
+            s.main.post { s.ball?.visibility = View.VISIBLE }
+        }
+
+        @Volatile
+        private var instance: FloatingBallService? = null
     }
 
+    private val main = Handler(Looper.getMainLooper())
     private var wm: WindowManager? = null
     private var ball: ImageView? = null
 
@@ -50,6 +72,7 @@ class FloatingBallService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createChannel()
         startForeground(NOTIF_ID, buildNotification())
+        instance = this
         if (ball == null) addBall()
         return START_STICKY
     }
@@ -140,6 +163,7 @@ class FloatingBallService : Service() {
             ball?.let { wm?.removeView(it) }
         } catch (e: Throwable) { /* 容错 */ }
         ball = null
+        if (instance === this) instance = null
         super.onDestroy()
     }
 }

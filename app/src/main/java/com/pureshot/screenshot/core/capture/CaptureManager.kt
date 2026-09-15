@@ -4,12 +4,17 @@ import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjection
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import com.pureshot.screenshot.core.Prefs
 import com.pureshot.screenshot.core.longshot.LongShotAccessibilityService
 import com.pureshot.screenshot.core.util.ErrorReporter
+import com.pureshot.screenshot.ui.floating.FloatingBallService
+import com.pureshot.screenshot.ui.preview.FloatingPreview
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 
@@ -30,14 +35,37 @@ object CaptureManager {
     /** 无障碍截图等待上限，超时回退媒体投影 */
     private const val ACCESSIBILITY_TIMEOUT_MS = 3000L
 
+    /** 悬浮球隐藏后等待窗口刷新的时间，避免悬浮窗被截入画面 */
+    private const val OVERLAY_HIDE_SETTLE_MS = 150L
+
+    /** UI 层（模式选择弹窗/提示对话框）关闭的默认等待时间 */
+    const val UI_DISMISS_SETTLE_MS = 350L
+
     @Volatile
     private var busy = false
+
+    /** 应用自身叠加窗（悬浮球/悬浮预览）当前是否处于“为截图而隐藏”的状态 */
+    @Volatile
+    private var overlaysHidden = false
 
     /** 长截图期间保持会话，不立即释放 */
     @Volatile
     var keepSession = false
 
-    fun request(ctx: Context, mode: CaptureMode) {
+    /**
+     * 请求截图。
+     * @param settleDelayMs 触发截图的界面（模式选择弹窗/提示对话框）关闭后的等待时间，
+     *   避免自身悬浮层被截入画面；由应用自身 UI 触发时传入，磁贴/自动化 API 传 0 即可。
+     */
+    fun request(ctx: Context, mode: CaptureMode, settleDelayMs: Long = 0L) {
+        if (settleDelayMs <= 0L) {
+            performRequest(ctx, mode)
+            return
+        }
+        Handler(Looper.getMainLooper()).postDelayed({ performRequest(ctx, mode) }, settleDelayMs)
+    }
+
+    private fun performRequest(ctx: Context, mode: CaptureMode) {
         if (mode == CaptureMode.DELAY) {
             CountdownOverlay.start(ctx, Prefs.delaySeconds)
             return
@@ -104,8 +132,15 @@ object CaptureManager {
 
     private fun runMode(ctx: Context, mode: CaptureMode) {
         busy = true
+        // 悬浮球 / 悬浮预览均为应用自身叠加窗，截图前先隐藏，避免出现在画面中
+        val ballShown = FloatingBallService.isBallShown()
+        val previewShown = FloatingPreview.isShown()
+        if (ballShown) FloatingBallService.hideForCapture()
+        if (previewShown) FloatingPreview.hideForCapture()
+        if (ballShown || previewShown) overlaysHidden = true
         scope.launch {
             try {
+                if (ballShown || previewShown) delay(OVERLAY_HIDE_SETTLE_MS)
                 val full = captureWithEnhancement(ctx, mode)
                 when (mode) {
                     CaptureMode.FULL -> ResultDispatcher.dispatch(ctx, full, CaptureMode.FULL)
@@ -135,9 +170,22 @@ object CaptureManager {
                 ErrorReporter.toastRes(ctx, com.pureshot.screenshot.R.string.capture_fail)
             } finally {
                 busy = false
-                if (!keepSession) release()
+                if (keepSession) {
+                    // 长截图会话期间保持叠加窗隐藏，直至 LongShotActivity 结束会话
+                } else {
+                    restoreOverlays()
+                    release()
+                }
             }
         }
+    }
+
+    /** 恢复为截图而隐藏的应用自身叠加窗 */
+    fun restoreOverlays() {
+        if (!overlaysHidden) return
+        overlaysHidden = false
+        FloatingBallService.restoreAfterCapture()
+        FloatingPreview.restoreAfterCapture()
     }
 
     /** Issue5：全界面增强截取 —— 小米/鸿蒙走系统底层接口尝试，其他设备自动回退标准捕获 */

@@ -89,9 +89,11 @@ class HomeFragment : Fragment() {
             row.findViewById<TextView>(R.id.mode_desc).setText(info.second)
             (row as MaterialCardView).setOnClickListener {
                 if (mode != CaptureMode.DELAY && Dialogs.maybePromptFastCapture(requireContext())) return@setOnClickListener
-                if (mode == CaptureMode.APP) Dialogs.appModeNotice(requireContext()) {
-                    CaptureManager.request(requireContext().applicationContext, mode)
-                } else CaptureManager.request(requireContext().applicationContext, mode)
+                if (mode == CaptureMode.APP) {
+                    Dialogs.appModeNotice(requireContext()) { startFromApp(mode) }
+                } else {
+                    startFromApp(mode)
+                }
             }
             val lp = GridLayout.LayoutParams().apply {
                 width = 0
@@ -102,6 +104,20 @@ class HomeFragment : Fragment() {
             grid.addView(row, lp)
         }
         modeContainer.addView(grid)
+    }
+
+    /**
+     * 从应用自身界面发起截图：先把应用退到后台露出上一层界面，
+     * 待窗口切换完成后再捕获，避免把本应用界面（含底部导航）截入画面。
+     */
+    private fun startFromApp(mode: CaptureMode) {
+        val ctx = requireContext().applicationContext
+        if (mode == CaptureMode.LONG) {
+            CaptureManager.request(ctx, mode)
+            return
+        }
+        requireActivity().moveTaskToBack(true)
+        CaptureManager.request(ctx, mode, CaptureManager.UI_DISMISS_SETTLE_MS)
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
