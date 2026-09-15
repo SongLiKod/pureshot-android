@@ -57,11 +57,18 @@ class CropOverlayView @JvmOverloads constructor(
         color = Color.WHITE; style = Paint.Style.STROKE; strokeWidth = 3f
     }
     private val third = Paint().apply { color = 0x66FFFFFF; strokeWidth = 1f }
-    private val handle = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val handleFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE }
+    private val handleBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2f * resources.displayMetrics.density
         color = androidx.core.content.ContextCompat.getColor(
             context, com.pureshot.screenshot.R.color.brand_primary
         )
     }
+
+    // 手柄按屏幕像素绘制，尺寸恒定，不受图片缩放影响
+    private val handleRadius = 9f * resources.displayMetrics.density
+    private val touchRadius = 28f * resources.displayMetrics.density
 
     private var rotated: Bitmap? = null
     private val rect = RectF()
@@ -76,7 +83,6 @@ class CropOverlayView @JvmOverloads constructor(
     private val hot = IntArray(8)
 
     companion object {
-        private const val TOUCH = 56f
         private const val MIN = 80f
     }
 
@@ -245,10 +251,29 @@ class CropOverlayView @JvmOverloads constructor(
             canvas.drawLine(rect.left, rect.top + h3, rect.right, rect.top + h3, third)
             canvas.drawLine(rect.left, rect.top + 2 * h3, rect.right, rect.top + 2 * h3, third)
         }
-        for (cx in floatArrayOf(rect.left, rect.right)) for (cy in floatArrayOf(rect.top, rect.bottom)) {
-            canvas.drawCircle(cx, cy, 12f, handle)
-        }
         canvas.restore()
+        // 8 个拖拽点（4 角 + 4 边中点），屏幕坐标绘制，大小恒定且便于点选
+        val pts = handlePoints()
+        for (i in 0 until 8) {
+            val hx = pts[i * 2]
+            val hy = pts[i * 2 + 1]
+            canvas.drawCircle(hx, hy, handleRadius, handleFill)
+            canvas.drawCircle(hx, hy, handleRadius, handleBorder)
+        }
+    }
+
+    /** 8 个手柄的屏幕坐标，顺序：左上、右上、左下、右下、上中、下中、左中、右中 */
+    private fun handlePoints(): FloatArray {
+        val l = offX + rect.left * fitScale
+        val r = offX + rect.right * fitScale
+        val t = offY + rect.top * fitScale
+        val b = offY + rect.bottom * fitScale
+        val cx = (l + r) / 2f
+        val cy = (t + b) / 2f
+        return floatArrayOf(
+            l, t, r, t, l, b, r, b,
+            cx, t, cx, b, l, cy, r, cy
+        )
     }
 
     private fun inRect(ev: MotionEvent): PointF {
@@ -262,14 +287,12 @@ class CropOverlayView @JvmOverloads constructor(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 downX = p.x; downY = p.y
-                hot[0] = hit(rect.left, rect.top)
-                hot[1] = hit(rect.right, rect.top)
-                hot[2] = hit(rect.left, rect.bottom)
-                hot[3] = hit(rect.right, rect.bottom)
-                hot[4] = hit(rect.centerX(), rect.top)
-                hot[5] = hit(rect.centerX(), rect.bottom)
-                hot[6] = hit(rect.left, rect.centerY())
-                hot[7] = hit(rect.right, rect.centerY())
+                val pts = handlePoints()
+                for (i in 0 until 8) {
+                    val hx = pts[i * 2]
+                    val hy = pts[i * 2 + 1]
+                    hot[i] = if (abs(event.x - hx) <= touchRadius && abs(event.y - hy) <= touchRadius) 1 else 0
+                }
                 mode = when {
                     hot.any { it == 1 } -> 3
                     rect.contains(p.x, p.y) -> 2
@@ -312,8 +335,6 @@ class CropOverlayView @JvmOverloads constructor(
         }
         return true
     }
-
-    private fun hit(x: Float, y: Float) = if (abs(x - downX) < TOUCH && abs(y - downY) < TOUCH) 1 else 0
 
     private fun resize(p: PointF, rt: Bitmap) {
         when {

@@ -54,7 +54,9 @@ class EditorFragment : Fragment() {
     private val vm: EditorViewModel by viewModels()
     private var boundDoc: EditDocument? = null
 
-    private val toolButtons = mutableMapOf<Tool, ImageButton>()
+    private val toolCells = mutableMapOf<Tool, ToolCell>()
+
+    private data class ToolCell(val root: LinearLayout, val icon: ImageButton, val label: TextView)
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, s: Bundle?): View =
         inflater.inflate(R.layout.fragment_editor, container, false)
@@ -69,6 +71,7 @@ class EditorFragment : Fragment() {
         view.findViewById<ImageButton>(R.id.btn_editor_close).setOnClickListener {
             parentFragmentManager.popBackStack()
         }
+        view.findViewById<View>(R.id.btn_editor_save).setOnClickListener { quickSave() }
 
         canvas.onTextRequested = { x, y -> showTextInput(null, x, y) }
         canvas.onTextEditRequested = { el -> showTextInput(el, 0f, 0f) }
@@ -106,40 +109,20 @@ class EditorFragment : Fragment() {
     // ---------- 工具栏（固定排序） ----------
 
     private fun buildToolbar(root: View) {
-        btnUndo = ImageButton(requireContext()).apply {
-            setImageResource(R.drawable.ic_undo)
-            contentDescription = getString(R.string.undo)
-            background = null
-            setPadding(pad(), pad(), pad(), pad())
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
-            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
-            setOnClickListener {
-                if (!canvas.undo()) ErrorReporter.toastRes(requireContext(), R.string.undo_empty)
-                updateUndoState()
-            }
+        val undoCell = addToolCell(R.drawable.ic_undo, getString(R.string.undo)) {
+            if (!canvas.undo()) ErrorReporter.toastRes(requireContext(), R.string.undo_empty)
+            updateUndoState()
         }
-        btnRedo = ImageButton(requireContext()).apply {
-            setImageResource(R.drawable.ic_redo)
-            contentDescription = getString(R.string.redo)
-            background = null
-            setPadding(pad(), pad(), pad(), pad())
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
-            layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
-            setOnClickListener {
-                if (!canvas.redo()) ErrorReporter.toastRes(requireContext(), R.string.redo_empty)
-                updateUndoState()
-            }
+        btnUndo = undoCell.icon
+        toolStrip.addView(undoCell.root)
+
+        val redoCell = addToolCell(R.drawable.ic_redo, getString(R.string.redo)) {
+            if (!canvas.redo()) ErrorReporter.toastRes(requireContext(), R.string.redo_empty)
+            updateUndoState()
         }
-        toolStrip.addView(btnUndo)
-        toolStrip.addView(btnRedo)
-        val exportBtn = ImageButton(requireContext()).apply {
-            setImageResource(R.drawable.ic_export)
-            contentDescription = getString(R.string.export)
-            background = null
-            setPadding(pad(), pad(), pad(), pad())
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
-            setOnClickListener { showExportDialog() }
-        }
+        btnRedo = redoCell.icon
+        toolStrip.addView(redoCell.root)
+
         val entries = listOf(
             Tool.SELECT to R.drawable.ic_select,
             Tool.CROP to R.drawable.ic_crop,
@@ -153,20 +136,43 @@ class EditorFragment : Fragment() {
             Tool.ERASER to R.drawable.ic_eraser
         )
         for ((tool, icon) in entries) {
-            val b = ImageButton(requireContext()).apply {
-                setImageResource(icon)
-                contentDescription = toolName(tool)
-                background = null
-                setPadding(pad(), pad(), pad(), pad())
-                scaleType = ImageView.ScaleType.CENTER_INSIDE
-                layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
-                setOnClickListener { selectTool(tool) }
-            }
-            toolButtons[tool] = b
-            toolStrip.addView(b)
+            val cell = addToolCell(icon, toolName(tool)) { selectTool(tool) }
+            toolCells[tool] = cell
+            toolStrip.addView(cell.root)
         }
-        toolStrip.addView(exportBtn, LinearLayout.LayoutParams(dp(48), dp(48)))
+        toolStrip.addView(addToolCell(R.drawable.ic_export, getString(R.string.export)) { showExportDialog() }.root)
         selectTool(Tool.SELECT)
+    }
+
+    /** 图标 + 文字标签的工具栏单元，避免用户只能靠猜图标含义 */
+    private fun addToolCell(iconRes: Int, labelText: String, onClick: () -> Unit): ToolCell {
+        val icon = ImageButton(requireContext()).apply {
+            setImageResource(iconRes)
+            contentDescription = labelText
+            background = null
+            setPadding(dp(6), dp(6), dp(6), dp(6))
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
+            setOnClickListener { onClick() }
+        }
+        val label = TextView(requireContext()).apply {
+            text = labelText
+            textSize = 10f
+            gravity = Gravity.CENTER
+            maxLines = 1
+            setTextColor(muted())
+        }
+        val root = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(2), dp(2), dp(2), dp(2))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = dp(2); marginEnd = dp(2) }
+            addView(icon)
+            addView(label)
+        }
+        return ToolCell(root, icon, label)
     }
 
     private fun toolName(t: Tool) = getString(
@@ -188,18 +194,31 @@ class EditorFragment : Fragment() {
         cropLayer.visibility = if (tool == Tool.CROP) View.VISIBLE else View.GONE
         if (tool == Tool.CROP) {
             cropOverlay.bind()
+            highlightTool(Tool.CROP)
             showOptions(Tool.CROP, false)
             return
         }
         val mosaicFamily = setOf(Tool.MOSAIC_RECT, Tool.MOSAIC_CIRCLE, Tool.MOSAIC_FREE, Tool.BLUR)
         val active = if (tool == Tool.MOSAIC_RECT && canvas.tool in mosaicFamily) canvas.tool else tool
         canvas.tool = active
-        for ((t, b) in toolButtons) {
-            val on = if (tool == Tool.MOSAIC_RECT) t == Tool.MOSAIC_RECT else t == tool
-            b.setColorFilter(if (on) brand() else Color.TRANSPARENT)
-        }
+        highlightTool(tool)
         showOptions(active, false)
     }
+
+    private fun highlightTool(tool: Tool) {
+        for ((t, cell) in toolCells) {
+            val on = if (tool == Tool.MOSAIC_RECT) t == Tool.MOSAIC_RECT else t == tool
+            cell.icon.setColorFilter(if (on) brand() else Color.TRANSPARENT)
+            cell.label.setTextColor(if (on) brand() else muted())
+            cell.root.background = if (on) selectedCellDrawable() else null
+        }
+    }
+
+    private fun selectedCellDrawable(): android.graphics.drawable.Drawable =
+        android.graphics.drawable.GradientDrawable().apply {
+            cornerRadius = dp(12).toFloat()
+            setColor(androidx.core.graphics.ColorUtils.setAlphaComponent(brand(), 0x22))
+        }
 
     private fun brand(): Int =
         com.google.android.material.color.MaterialColors.getColor(
@@ -455,6 +474,29 @@ class EditorFragment : Fragment() {
             .show()
     }
 
+    /** 顶部“保存”按钮：按当前默认设置一键保存，无需再进导出弹窗 */
+    private fun quickSave() {
+        val doc = canvas.doc ?: return
+        val fmt = Prefs.defaultFormat
+        if (fmt == "svg" && doc.annotationOnly().isEmpty()) {
+            ErrorReporter.toastRes(requireContext(), R.string.svg_empty)
+            return
+        }
+        val quality = when (fmt) {
+            "jpg", "jpeg" -> Prefs.jpgQuality
+            "webp" -> Prefs.webpQuality
+            else -> 100
+        }
+        ExportManager.saveDocument(
+            requireContext().applicationContext, doc, fmt, quality, Prefs.exportScope, emptyList()
+        ) { uri ->
+            if (isAdded) {
+                if (uri != null) ErrorReporter.toast(requireContext(), getString(R.string.saved_to, uri))
+                else ErrorReporter.toastRes(requireContext(), R.string.save_fail)
+            }
+        }
+    }
+
     private fun showExportDialog() {
         val doc = canvas.doc ?: return
         val fmts = ExportManager.FORMATS.toTypedArray()
@@ -569,7 +611,6 @@ class EditorFragment : Fragment() {
     )
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
-    private fun pad() = dp(10)
 
     private fun horizontalRow() = LinearLayout(requireContext()).apply {
         orientation = LinearLayout.HORIZONTAL
