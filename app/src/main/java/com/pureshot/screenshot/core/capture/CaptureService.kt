@@ -93,6 +93,8 @@ class CaptureService : Service() {
         } else {
             startForeground(NOTIF_ID, notif)
         }
+        // FGS 就绪，通知等待方（PermissionActivity）可以安全拉起授权页
+        CaptureManager.onServicePrepared()
     }
 
     override fun onDestroy() {

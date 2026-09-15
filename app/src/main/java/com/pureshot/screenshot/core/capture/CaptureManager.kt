@@ -64,6 +64,35 @@ object CaptureManager {
         if (!busy && !keepSession) release()
     }
 
+    /** 前台服务 startForeground 完成标志（Android14 要求授权页必须在 FGS 就绪后拉起） */
+    @Volatile
+    private var servicePrepared = false
+    private val preparedCallbacks = mutableListOf<() -> Unit>()
+
+    /** CaptureService 调用：startForeground 已完成，可以安全发起授权 */
+    fun onServicePrepared() {
+        servicePrepared = true
+        val callbacks = synchronized(preparedCallbacks) {
+            preparedCallbacks.toList().also { preparedCallbacks.clear() }
+        }
+        idleHandler.post { callbacks.forEach { it() } }
+    }
+
+    /** FGS 就绪后执行回调；已就绪立即执行，超时兜底防止流程挂起 */
+    fun whenPrepared(timeoutMs: Long = 2500L, callback: () -> Unit) {
+        if (servicePrepared) {
+            callback()
+            return
+        }
+        synchronized(preparedCallbacks) { preparedCallbacks.add(callback) }
+        idleHandler.postDelayed({
+            val pending = synchronized(preparedCallbacks) {
+                if (preparedCallbacks.remove(callback)) callback else null
+            }
+            pending?.invoke()
+        }, timeoutMs)
+    }
+
     /**
      * 请求截图。
      * @param settleDelayMs 触发截图的界面（模式选择弹窗/提示对话框）关闭后的等待时间。
@@ -168,6 +197,7 @@ object CaptureManager {
         projection = null
         queue.clear()
         keepSession = false
+        servicePrepared = false
         idleHandler.removeCallbacks(idleRelease)
         AppContext.get()?.let { stopService(it) }
     }
@@ -175,6 +205,7 @@ object CaptureManager {
     /** 用户取消授权：清空待执行队列并停止准备中的服务 */
     fun queueAbandon() {
         queue.clear()
+        servicePrepared = false
         AppContext.get()?.let { stopService(it) }
     }
 
