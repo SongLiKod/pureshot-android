@@ -98,7 +98,8 @@ class SettingsFragment : Fragment() {
                 }
             }
         }
-        val accOn = Prefs.accAutoScroll && PermissionUtil.isAccessibilityEnabled(requireContext())
+        val accEnabled = PermissionUtil.isAccessibilityEnabled(requireContext())
+        val accOn = Prefs.accAutoScroll && accEnabled
         clickRow(
             getString(R.string.acc_switch_title),
             getString(R.string.acc_switch_desc) + "\n" +
@@ -123,6 +124,27 @@ class SettingsFragment : Fragment() {
                     .setNegativeButton(R.string.cancel, null)
                     .show()
             }
+        }
+        switchRow(
+            getString(R.string.fast_capture_switch_title),
+            getString(R.string.fast_capture_switch_desc) + "\n" +
+                if (accEnabled) getString(R.string.perm_granted) else getString(R.string.perm_denied),
+            Prefs.fastCapture
+        ) { checked ->
+            Prefs.fastCapture = checked
+            if (checked && !accEnabled) {
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.fast_capture_notice_title)
+                    .setMessage(R.string.fast_capture_notice_msg)
+                    .setPositiveButton(R.string.acc_go_settings) { _, _ ->
+                        try {
+                            startActivity(PermissionUtil.accessibilityIntent())
+                        } catch (e: Throwable) { /* 容错 */ }
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            }
+            refresh()
         }
         clickRow(
             getString(R.string.ball_switch_title),

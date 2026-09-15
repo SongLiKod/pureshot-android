@@ -3,12 +3,15 @@
 import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjection
+import android.os.Build
 import com.pureshot.screenshot.core.Prefs
+import com.pureshot.screenshot.core.longshot.LongShotAccessibilityService
 import com.pureshot.screenshot.core.util.ErrorReporter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 enum class CaptureMode { FULL, APP, REGION, DELAY, LONG }
 
@@ -23,6 +26,9 @@ object CaptureManager {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val queue = ArrayDeque<CaptureMode>()
+
+    /** 无障碍截图等待上限，超时回退媒体投影 */
+    private const val ACCESSIBILITY_TIMEOUT_MS = 3000L
 
     @Volatile
     private var busy = false
@@ -40,6 +46,11 @@ object CaptureManager {
             ErrorReporter.toastRes(ctx, com.pureshot.screenshot.R.string.capture_running)
             return
         }
+        // 极速截图：无障碍可用时直接调用官方截图接口，无需每次确认「共享屏幕」弹窗
+        if (canCaptureByAccessibility() && mode != CaptureMode.LONG) {
+            runMode(ctx, mode)
+            return
+        }
         if (projection == null) {
             queue.addLast(mode)
             // Android14+ 要求：发起授权前必须先启动 mediaProjection 类型前台服务
@@ -53,6 +64,12 @@ object CaptureManager {
             runMode(ctx, mode)
         }
     }
+
+    /** 无障碍极速截图是否可用：开关开启、系统 Android11+、且无障碍服务已连接 */
+    fun canCaptureByAccessibility(): Boolean =
+        Prefs.fastCapture &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+            LongShotAccessibilityService.instance?.canScreenshot() == true
 
     fun onConsent(resultCode: Int, data: Intent) {
         val ctx = AppContext.get() ?: return
@@ -89,7 +106,7 @@ object CaptureManager {
         busy = true
         scope.launch {
             try {
-                val full = captureWithEnhancement(ctx)
+                val full = captureWithEnhancement(ctx, mode)
                 when (mode) {
                     CaptureMode.FULL -> ResultDispatcher.dispatch(ctx, full, CaptureMode.FULL)
                     CaptureMode.APP -> {
@@ -124,9 +141,15 @@ object CaptureManager {
     }
 
     /** Issue5：全界面增强截取 —— 小米/鸿蒙走系统底层接口尝试，其他设备自动回退标准捕获 */
-    private suspend fun captureWithEnhancement(ctx: Context): android.graphics.Bitmap {
+    private suspend fun captureWithEnhancement(ctx: Context, mode: CaptureMode): android.graphics.Bitmap {
         if (Prefs.romEnhanced) {
             RomEnhancedCapture.tryCapture(ctx)?.let { return it }
+        }
+        // 极速截图：优先走官方无障碍截图接口，免「共享屏幕」授权弹窗
+        if (mode != CaptureMode.LONG && canCaptureByAccessibility()) {
+            withTimeoutOrNull(ACCESSIBILITY_TIMEOUT_MS) {
+                LongShotAccessibilityService.instance?.captureScreen()
+            }?.let { return it }
         }
         return ScreenCapturer.capture(ctx)
     }

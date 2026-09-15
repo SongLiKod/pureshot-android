@@ -32,6 +32,7 @@ class ModeChooserActivity : AppCompatActivity() {
             row.findViewById<android.widget.TextView>(R.id.mode_title).setText(titleRes)
             row.findViewById<android.widget.TextView>(R.id.mode_desc).visibility = android.view.View.GONE
             (row as MaterialCardView).setOnClickListener {
+                if (mode != CaptureMode.DELAY && Dialogs.maybePromptFastCapture(this)) return@setOnClickListener
                 CaptureManager.request(applicationContext, mode)
                 finish()
             }
