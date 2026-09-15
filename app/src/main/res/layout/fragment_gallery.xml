@@ -28,16 +28,16 @@
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/fmt_gif"
+            android:contentDescription="@string/gallery_gif"
             android:padding="10dp"
-            android:src="@drawable/ic_mode_long" />
+            android:src="@drawable/ic_gif" />
 
         <ImageButton
             android:id="@+id/btn_select"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/gallery_selected"
+            android:contentDescription="@string/gallery_select"
             android:padding="10dp"
             android:src="@drawable/ic_check" />
 

@@ -9,15 +9,17 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:paddingStart="16dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="24dp">
 
         <TextView
             android:id="@+id/home_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
             android:text="@string/app_name"
-            android:textColor="?attr/colorPrimary"
+            android:textColor="?attr/colorOnSurface"
             android:textSize="26sp"
             android:textStyle="bold" />
 
@@ -33,73 +35,130 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="10dp"
             android:text="@string/home_mode_title"
-            android:textColor="?attr/colorOnBackground"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textAppearance="@style/TextAppearance.PureShot.Section" />
 
         <LinearLayout
             android:id="@+id/mode_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
             android:orientation="vertical" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="10dp"
             android:text="@string/theme_title"
-            android:textColor="?attr/colorOnBackground"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:textAppearance="@style/TextAppearance.PureShot.Section" />
 
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/theme_group"
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.PureShot.Card"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:selectionRequired="true"
-            app:singleSelection="true">
+            android:layout_height="wrap_content">
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_theme_system"
-                style="@style/Widget.Material3.Chip.Filter"
-                android:layout_width="wrap_content"
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/theme_group"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/theme_system" />
+                android:padding="12dp"
+                app:selectionRequired="true"
+                app:singleSelection="true">
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_theme_light"
-                style="@style/Widget.Material3.Chip.Filter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/theme_light" />
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_theme_system"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/theme_system" />
 
-            <com.google.android.material.chip.Chip
-                android:id="@+id/chip_theme_dark"
-                style="@style/Widget.Material3.Chip.Filter"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/theme_dark" />
-        </com.google.android.material.chip.ChipGroup>
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_theme_light"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/theme_light" />
+
+                <com.google.android.material.chip.Chip
+                    android:id="@+id/chip_theme_dark"
+                    style="@style/Widget.Material3.Chip.Filter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/theme_dark" />
+            </com.google.android.material.chip.ChipGroup>
+        </com.google.android.material.card.MaterialCardView>
 
         <TextView
-            android:id="@+id/rom_info"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="13sp" />
+            android:layout_marginTop="24dp"
+            android:layout_marginBottom="10dp"
+            android:text="@string/about_section"
+            android:textAppearance="@style/TextAppearance.PureShot.Section" />
 
-        <TextView
-            android:id="@+id/about_text"
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.PureShot.Card"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="16dp"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="12sp" />
+            android:layout_height="wrap_content">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingTop="6dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="6dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:minHeight="44dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/about_device_label"
+                        android:textAppearance="@style/TextAppearance.PureShot.RowTitle" />
+
+                    <TextView
+                        android:id="@+id/rom_info"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.PureShot.RowDesc" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:background="@color/app_divider" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:minHeight="44dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/about_version_label"
+                        android:textAppearance="@style/TextAppearance.PureShot.RowTitle" />
+
+                    <TextView
+                        android:id="@+id/about_version"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAppearance="@style/TextAppearance.PureShot.RowDesc" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
 </ScrollView>

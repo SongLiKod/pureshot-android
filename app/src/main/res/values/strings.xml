@@ -9,24 +9,30 @@
     <string name="nav_gallery">图库</string>
     <string name="nav_settings">设置</string>
 
-    <string name="home_slogan">纯净截图 · 专业标注 · 零广告零冗余权限</string>
+    <string name="home_slogan">纯净截图 · 专业标注 · 零广告</string>
     <string name="home_mode_title">截图模式</string>
     <string name="mode_full">全屏截图</string>
-    <string name="mode_full_desc">捕获完整屏幕画面，含状态栏、导航栏、弹窗、输入法、悬浮窗</string>
+    <string name="mode_full_desc">完整屏幕，含状态栏与弹窗</string>
     <string name="mode_app">应用截图</string>
-    <string name="mode_app_desc">Android14+原生窗口捕获；10-13自动裁切系统栏并支持二次微调</string>
+    <string name="mode_app_desc">单个应用，剔除系统界面</string>
     <string name="mode_region">区域截图</string>
-    <string name="mode_region_desc">自由框选屏幕任意区域，拖拽调整选区大小与位置</string>
+    <string name="mode_region_desc">自由框选任意区域</string>
     <string name="mode_delay">延迟截图</string>
-    <string name="mode_delay_desc">3s/5s/自定义倒计时捕获，适配弹窗与临时界面</string>
+    <string name="mode_delay_desc">倒计时结束后自动捕获</string>
     <string name="mode_long">长截图</string>
-    <string name="mode_long_desc">手动滑动帧采样智能拼接，接缝像素微调，无需无障碍权限</string>
+    <string name="mode_long_desc">滚动页面自动拼接成长图</string>
 
     <string name="theme_title">主题模式</string>
     <string name="theme_system">跟随系统</string>
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>
-    <string name="rom_detect">设备ROM识别：%1$s</string>
+    <string name="about_section">关于</string>
+    <string name="about_device_label">设备 ROM</string>
+    <string name="about_version_label">应用版本</string>
+    <string name="version_value">v%1$s</string>
+
+    <string name="gallery_select">选择</string>
+    <string name="gallery_gif">合成 GIF</string>
 
     <string name="ok">确定</string>
     <string name="cancel">取消</string>
@@ -219,7 +225,6 @@
     <string name="redo_empty">没有可重做的操作</string>
     <string name="err_title">出错了</string>
     <string name="err_msg">操作失败：%1$s</string>
-    <string name="about_version">净截 PureShot v%1$s · 零广告 · 零冗余权限 · 零功能捆绑</string>
     <string name="tile_click_hint">单击磁贴选择截图模式，长按进入应用</string>
 
     <string name="ocr_title">提取文字</string>

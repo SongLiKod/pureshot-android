@@ -54,10 +54,9 @@ class HomeFragment : Fragment() {
             ThemeManager.setMode(mode)
         }
 
-        view.findViewById<TextView>(R.id.rom_info).text =
-            getString(R.string.rom_detect, RomUtils.romName())
-        view.findViewById<TextView>(R.id.about_text).text =
-            getString(R.string.about_version, "1.0.0")
+        view.findViewById<TextView>(R.id.rom_info).text = RomUtils.romName()
+        view.findViewById<TextView>(R.id.about_version).text =
+            getString(R.string.version_value, "1.0.0")
 
         // 折叠形态变化 → 重排网格
         FoldableUtil.observeFolding(requireActivity(), viewLifecycleOwner.lifecycleScope) {

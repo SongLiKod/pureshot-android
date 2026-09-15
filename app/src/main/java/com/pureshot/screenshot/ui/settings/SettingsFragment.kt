@@ -10,6 +10,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
@@ -80,13 +81,13 @@ class SettingsFragment : Fragment() {
         clickRow(getString(R.string.delay_title), getString(R.string.delay_fmt, Prefs.delaySeconds)) {
             Dialogs.delayPicker(requireContext()) { refresh() }
         }
-        val romState = if (Prefs.romEnhanced) getString(R.string.perm_granted) else getString(R.string.perm_denied)
         clickRow(
             getString(R.string.rom_switch_title),
-            getString(R.string.rom_switch_desc) + "\n" + getString(
+            getString(
                 if (RomUtils.isEnhanceSupported) R.string.rom_supported else R.string.rom_unsupported,
                 RomUtils.romName()
-            ) + "\n" + romState
+            ),
+            Prefs.romEnhanced
         ) {
             if (Prefs.romEnhanced) {
                 Prefs.romEnhanced = false
@@ -102,8 +103,8 @@ class SettingsFragment : Fragment() {
         val accOn = Prefs.accAutoScroll && accEnabled
         clickRow(
             getString(R.string.acc_switch_title),
-            getString(R.string.acc_switch_desc) + "\n" +
-                if (accOn) getString(R.string.perm_granted) else getString(R.string.perm_denied)
+            getString(R.string.acc_switch_desc),
+            accOn
         ) {
             if (accOn) {
                 Prefs.accAutoScroll = false
@@ -127,8 +128,7 @@ class SettingsFragment : Fragment() {
         }
         switchRow(
             getString(R.string.fast_capture_switch_title),
-            getString(R.string.fast_capture_switch_desc) + "\n" +
-                if (accEnabled) getString(R.string.perm_granted) else getString(R.string.perm_denied),
+            getString(R.string.fast_capture_switch_desc),
             Prefs.fastCapture
         ) { checked ->
             Prefs.fastCapture = checked
@@ -148,8 +148,8 @@ class SettingsFragment : Fragment() {
         }
         clickRow(
             getString(R.string.ball_switch_title),
-            getString(R.string.ball_switch_desc) + "\n" +
-                if (Prefs.floatingBall) getString(R.string.perm_granted) else getString(R.string.perm_denied)
+            getString(R.string.ball_switch_desc),
+            Prefs.floatingBall
         ) {
             if (Prefs.floatingBall) {
                 Prefs.floatingBall = false
@@ -292,20 +292,46 @@ class SettingsFragment : Fragment() {
 
     // ---------- 行构建 ----------
 
+    private var currentCard: LinearLayout? = null
+    private var rowsInCard = 0
+
     private fun sectionTitle(text: String) {
         container.addView(TextView(requireContext()).apply {
             this.text = text
-            setTextColor(brand())
-            textSize = 14f
+            setTextColor(onSurface())
+            textSize = 13f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
-            setPadding(0, dp(20), 0, dp(8))
+            letterSpacing = 0.03f
+            setPadding(dp(4), dp(22), 0, dp(8))
         })
+        val cardView = layoutInflater.inflate(R.layout.item_settings_card, container, false)
+        container.addView(cardView)
+        currentCard = cardView.findViewById(R.id.settings_card_inner)
+        rowsInCard = 0
+    }
+
+    private fun addRow(row: View) {
+        val card = currentCard ?: return
+        if (rowsInCard > 0) card.addView(View(requireContext()).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(1))
+            setBackgroundColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.app_divider))
+        })
+        card.addView(row)
+        rowsInCard++
+    }
+
+    private fun selectableBg(): android.graphics.drawable.Drawable? {
+        val tv = android.util.TypedValue()
+        requireContext().theme.resolveAttribute(android.R.attr.selectableItemBackground, tv, true)
+        return androidx.core.content.ContextCompat.getDrawable(requireContext(), tv.resourceId)
     }
 
     private fun baseRow(): LinearLayout = LinearLayout(requireContext()).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(0, dp(12), 0, dp(12))
+        setPadding(dp(16), dp(12), dp(16), dp(12))
+        minimumHeight = dp(56)
+        background = selectableBg()
         layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
@@ -314,12 +340,24 @@ class SettingsFragment : Fragment() {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             addView(TextView(requireContext()).apply {
-                text = title; textSize = 15f; setTextColor(onSurface())
+                text = title
+                textSize = 15f
+                setTextColor(onSurface())
             })
             if (!desc.isNullOrBlank()) addView(TextView(requireContext()).apply {
-                text = desc; textSize = 12f; setTextColor(muted()); setPadding(0, dp(2), 0, 0)
+                text = desc
+                textSize = 12f
+                setTextColor(muted())
+                setPadding(0, dp(3), 0, 0)
             })
         }
+    }
+
+    private fun chevron(): ImageView = ImageView(requireContext()).apply {
+        setImageResource(R.drawable.ic_chevron_right)
+        imageTintList = android.content.res.ColorStateList.valueOf(muted())
+        layoutParams = LinearLayout.LayoutParams(dp(20), dp(20)).apply { marginStart = dp(8) }
+        contentDescription = null
     }
 
     private fun switchRow(title: String, desc: String, checked: Boolean, onChange: (Boolean) -> Unit) {
@@ -329,43 +367,50 @@ class SettingsFragment : Fragment() {
             isChecked = checked
             setOnCheckedChangeListener { _, c -> onChange(c) }
         })
-        container.addView(row)
+        addRow(row)
     }
 
     private fun clickRow(title: String, desc: String, onClick: () -> Unit) {
         val row = baseRow()
         row.addView(titleBlock(title, desc))
-        row.addView(TextView(requireContext()).apply {
-            text = ">"; textSize = 18f; setTextColor(muted())
-        })
-        row.setOnClickListener { onClick() }
-        container.addView(row)
+        row.addView(chevron())
+        row.makeClickable { onClick() }
+        addRow(row)
+    }
+
+    private fun clickRow(title: String, desc: String, status: Boolean?, onClick: () -> Unit) {
+        val row = baseRow()
+        row.addView(titleBlock(title, desc))
+        row.addView(statusChip(status))
+        row.addView(chevron())
+        row.makeClickable { onClick() }
+        addRow(row)
     }
 
     private fun permRow(title: String, desc: String, granted: Boolean?, onGo: () -> Unit) {
         val row = baseRow()
         row.addView(titleBlock(title, desc))
-        val status = TextView(requireContext()).apply {
-            text = when (granted) {
-                true -> getString(R.string.perm_granted)
-                false -> getString(R.string.perm_denied)
-                else -> getString(R.string.perm_none)
-            }
-            textSize = 12f
-            setTextColor(if (granted == true) brand() else muted())
-            setPadding(dp(8), 0, dp(8), 0)
+        row.addView(statusChip(granted))
+        if (granted == false) row.makeClickable { onGo() }
+        addRow(row)
+    }
+
+    private fun LinearLayout.makeClickable(action: () -> Unit) {
+        isClickable = true
+        isFocusable = true
+        setOnClickListener { action() }
+    }
+
+    private fun statusChip(granted: Boolean?): TextView = TextView(requireContext()).apply {
+        text = when (granted) {
+            true -> getString(R.string.perm_granted)
+            false -> getString(R.string.perm_go)
+            else -> getString(R.string.perm_none)
         }
-        row.addView(status)
-        if (granted == false) {
-            row.addView(TextView(requireContext()).apply {
-                text = getString(R.string.perm_go)
-                textSize = 13f
-                setTextColor(brand())
-                setPadding(dp(6), 0, dp(6), 0)
-            })
-        }
-        row.setOnClickListener { onGo() }
-        container.addView(row)
+        textSize = 12f
+        setTextColor(if (granted == true) brand() else muted())
+        setBackgroundResource(if (granted == true) R.drawable.bg_status_on else R.drawable.bg_status_off)
+        setPadding(dp(12), dp(5), dp(12), dp(5))
     }
 
     private fun singleChoice(items: Array<String>, checked: Int, onPick: (Int) -> Unit) {
