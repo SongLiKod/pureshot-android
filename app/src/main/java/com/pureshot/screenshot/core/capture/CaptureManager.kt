@@ -1,9 +1,11 @@
 ﻿package com.pureshot.screenshot.core.capture
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.media.projection.MediaProjection
+import android.media.projection.MediaProjectionManager
 import android.os.Handler
 import android.os.Looper
 import com.pureshot.screenshot.core.Prefs
@@ -69,6 +71,17 @@ object CaptureManager {
     private var servicePrepared = false
     private val preparedCallbacks = mutableListOf<() -> Unit>()
 
+    /** 授权请求是否已在途（防止重复拉起授权页） */
+    @Volatile
+    private var consentPending = false
+
+    /** 投影生命周期回调（用户从系统托盘停止共享时触发释放） */
+    private val projectionCallback = object : MediaProjection.Callback() {
+        override fun onStop() {
+            onProjectionStopped()
+        }
+    }
+
     /** CaptureService 调用：startForeground 已完成，可以安全发起授权 */
     fun onServicePrepared() {
         servicePrepared = true
@@ -91,6 +104,26 @@ object CaptureManager {
             }
             pending?.invoke()
         }, timeoutMs)
+    }
+
+    /**
+     * 由 MainActivity 调用：FGS 就绪后拉起系统授权页。
+     * 授权页从真实前台 Activity 拉起（非透明中转页），保证结果可靠回传。
+     */
+    fun launchConsent(activity: Activity, launcher: androidx.activity.result.ActivityResultLauncher<Intent>) {
+        if (consentPending) return
+        consentPending = true
+        whenPrepared {
+            consentPending = false
+            if (activity.isFinishing || activity.isDestroyed) return@whenPrepared
+            try {
+                val mgr = activity.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                launcher.launch(mgr.createScreenCaptureIntent())
+            } catch (e: Throwable) {
+                queueAbandon()
+                ErrorReporter.toastRes(activity, com.pureshot.screenshot.R.string.capture_fail)
+            }
+        }
     }
 
     /**
@@ -156,9 +189,11 @@ object CaptureManager {
             return false
         }
         try {
+            // 授权页从真实前台 Activity（MainActivity）拉起：结果回传可靠，兼容 MIUI 等 ROM
             ctx.startActivity(
-                Intent(ctx, PermissionActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                Intent(ctx, com.pureshot.screenshot.MainActivity::class.java)
+                    .setAction(com.pureshot.screenshot.MainActivity.ACTION_REQUEST_CONSENT)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             )
             return true
         } catch (e: Throwable) {
@@ -169,18 +204,28 @@ object CaptureManager {
         }
     }
 
-    fun onConsent(resultCode: Int, data: Intent) {
-        val ctx = AppContext.get() ?: return
+    /**
+     * 由 MainActivity 在授权结果回调中调用：
+     * 就地创建 MediaProjection（不跨组件嵌套传递授权令牌，规避 MIUI 等 ROM 兼容问题），
+     * 并把主任务退到后台，露出目标界面后开始捕获。
+     */
+    fun onConsent(activity: Activity, resultCode: Int, data: Intent) {
+        consentPending = false
         try {
-            ctx.startForegroundService(
-                Intent(ctx, CaptureService::class.java)
-                    .setAction(CaptureService.ACTION_CONSENT)
-                    .putExtra(CaptureService.EXTRA_CODE, resultCode)
-                    .putExtra(CaptureService.EXTRA_DATA, data)
-            )
+            val mgr = activity.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            val p = mgr.getMediaProjection(resultCode, data)
+            // API34 要求：createVirtualDisplay 前必须注册 Callback
+            p.registerCallback(projectionCallback, null)
+            projection = p
+            // 授权已拿到：主任务退后台，让捕获到的是用户平时用的应用而不是净截自身
+            try {
+                activity.moveTaskToBack(true)
+            } catch (e: Throwable) { /* 容错 */ }
+            onProjectionReady(p)
         } catch (e: Throwable) {
+            stopService(activity)
             queueAbandon()
-            ErrorReporter.toastRes(ctx, com.pureshot.screenshot.R.string.capture_fail)
+            ErrorReporter.toastRes(activity, com.pureshot.screenshot.R.string.capture_fail)
         }
     }
 

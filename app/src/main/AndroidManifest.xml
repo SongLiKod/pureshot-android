@@ -69,15 +69,6 @@
         </activity>
 
         <!-- 透明授权中转页：按需申请 MediaProjection，单次捕获 -->
-        <!-- 透明授权中转页：必须与调用者同任务栈，否则 startActivityForResult 结果会立即
-             被系统置为 RESULT_CANCELED（投影永远拿不到令牌）。 -->
-        <activity
-            android:name=".core.capture.PermissionActivity"
-            android:exported="false"
-            android:excludeFromRecents="true"
-            android:launchMode="singleTop"
-            android:theme="@style/Theme.PureShot.Translucent" />
-
         <!-- 截图模式选择弹窗（磁贴/悬浮球触发） -->
         <activity
             android:name=".core.capture.ModeChooserActivity"
