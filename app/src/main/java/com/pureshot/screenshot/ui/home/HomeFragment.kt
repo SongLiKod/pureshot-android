@@ -87,7 +87,6 @@ class HomeFragment : Fragment() {
             row.findViewById<TextView>(R.id.mode_title).setText(info.first)
             row.findViewById<TextView>(R.id.mode_desc).setText(info.second)
             (row as MaterialCardView).setOnClickListener {
-                if (mode != CaptureMode.DELAY && Dialogs.maybePromptFastCapture(requireContext())) return@setOnClickListener
                 if (mode == CaptureMode.APP) {
                     Dialogs.appModeNotice(requireContext()) { startFromApp(mode) }
                 } else {

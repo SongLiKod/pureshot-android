@@ -49,7 +49,7 @@
     <string name="capture_fail">截图失败，请重试</string>
     <string name="capture_cancelled">已取消截图</string>
     <string name="capture_running">截图捕获中…</string>
-    <string name="notif_capturing">净截正在捕获屏幕</string>
+    <string name="notif_capturing">净截截图保活中 · 一点即截，空闲超时自动退出</string>
 
     <string name="delay_dialog_title">延迟截图时长</string>
     <string name="delay_3">3 秒</string>
@@ -168,10 +168,8 @@
     <string name="set_theme">主题与关于</string>
 
     <string name="delay_title">延迟截图时长</string>
-    <string name="fast_capture_switch_title">极速截图（免共享屏幕弹窗）</string>
-    <string name="fast_capture_switch_desc">开启无障碍服务后，选择截图模式即直接完成，无需每次确认系统「共享屏幕」弹窗。仅调用系统官方截图接口与滚动手势，不读取任何界面内容。</string>
-    <string name="fast_capture_notice_title">需要开启无障碍服务</string>
-    <string name="fast_capture_notice_msg">极速截图依赖系统无障碍服务，仅用于调用官方截图接口与长截图滚动手势，不读取、不存储、不上传任何界面内容。请在系统设置中找到「净截 PureShot」并开启。</string>
+    <string name="keep_alive_title">截图保活时长</string>
+    <string name="keep_alive_fmt">截屏后 %1$d 分钟内一点即截、免授权弹窗；超时自动退出</string>
     <string name="acc_switch_title">无障碍自动滚动长截图</string>
     <string name="acc_switch_desc">可选功能：授权系统无障碍后启用，自动滚动拼接长截图。仅发送滚动手势，不读取任何界面内容。</string>
     <string name="acc_go_settings">去系统设置开启</string>
@@ -206,9 +204,9 @@
     <string name="perm_overlay">悬浮窗权限</string>
     <string name="perm_overlay_desc">用于悬浮球快捷触发与悬浮预览</string>
     <string name="perm_acc">无障碍权限（可选）</string>
-    <string name="perm_acc_desc">用于极速截图与自动长截图，默认关闭</string>
+    <string name="perm_acc_desc">仅用于自动长截图，默认关闭</string>
     <string name="perm_projection">媒体投影授权</string>
-    <string name="perm_projection_desc">未开启极速截图时的回退方案：每次按需授权，捕获完成立即释放，无常驻后台</string>
+    <string name="perm_projection_desc">首次截图按需授权，保活时长内一点即截、免弹窗；空闲超时或系统托盘点「停止」即释放，不常驻</string>
     <string name="perm_granted">已授权</string>
     <string name="perm_denied">未授权</string>
     <string name="perm_go">去开启</string>

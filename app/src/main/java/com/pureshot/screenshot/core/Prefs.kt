@@ -25,6 +25,11 @@ object Prefs {
         get() = sp.getInt("delay_seconds", 3)
         set(v) = sp.edit().putInt("delay_seconds", v).apply()
 
+    /** 投影保活时长（分钟）：截屏后该时间内一点即截，空闲超时自动释放。默认 5 分钟 */
+    var keepAliveMinutes: Int
+        get() = sp.getInt("keep_alive_minutes", 5)
+        set(v) = sp.edit().putInt("keep_alive_minutes", v).apply()
+
     /** 全界面增强截取开关，默认关闭 */
     var romEnhanced: Boolean
         get() = sp.getBoolean("rom_enhanced", false)
@@ -34,16 +39,6 @@ object Prefs {
     var accAutoScroll: Boolean
         get() = sp.getBoolean("acc_auto_scroll", false)
         set(v) = sp.edit().putBoolean("acc_auto_scroll", v).apply()
-
-    /** 极速截图：无障碍可用时直接成像，免每次「共享屏幕」授权弹窗（默认开启，需无障碍服务已连接） */
-    var fastCapture: Boolean
-        get() = sp.getBoolean("fast_capture", true)
-        set(v) = sp.edit().putBoolean("fast_capture", v).apply()
-
-    /** 是否已提示过开启无障碍极速截图 */
-    var fastCapturePrompted: Boolean
-        get() = sp.getBoolean("fast_capture_prompted", false)
-        set(v) = sp.edit().putBoolean("fast_capture_prompted", v).apply()
 
     var floatingBall: Boolean
         get() = sp.getBoolean("floating_ball", false)

@@ -82,6 +82,19 @@ class SettingsFragment : Fragment() {
             Dialogs.delayPicker(requireContext()) { refresh() }
         }
         clickRow(
+            getString(R.string.keep_alive_title),
+            getString(R.string.keep_alive_fmt, Prefs.keepAliveMinutes)
+        ) {
+            val options = intArrayOf(1, 3, 5, 10, 15, 30)
+            singleChoice(
+                options.map { "${it} 分钟" }.toTypedArray(),
+                options.indexOf(Prefs.keepAliveMinutes).coerceAtLeast(0)
+            ) {
+                Prefs.keepAliveMinutes = options[it]
+                refresh()
+            }
+        }
+        clickRow(
             getString(R.string.rom_switch_title),
             getString(
                 if (RomUtils.isEnhanceSupported) R.string.rom_supported else R.string.rom_unsupported,
@@ -125,26 +138,6 @@ class SettingsFragment : Fragment() {
                     .setNegativeButton(R.string.cancel, null)
                     .show()
             }
-        }
-        switchRow(
-            getString(R.string.fast_capture_switch_title),
-            getString(R.string.fast_capture_switch_desc),
-            Prefs.fastCapture
-        ) { checked ->
-            Prefs.fastCapture = checked
-            if (checked && !accEnabled) {
-                MaterialAlertDialogBuilder(requireContext())
-                    .setTitle(R.string.fast_capture_notice_title)
-                    .setMessage(R.string.fast_capture_notice_msg)
-                    .setPositiveButton(R.string.acc_go_settings) { _, _ ->
-                        try {
-                            startActivity(PermissionUtil.accessibilityIntent())
-                        } catch (e: Throwable) { /* 容错 */ }
-                    }
-                    .setNegativeButton(R.string.cancel, null)
-                    .show()
-            }
-            refresh()
         }
         clickRow(
             getString(R.string.ball_switch_title),
