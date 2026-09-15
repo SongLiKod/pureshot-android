@@ -25,6 +25,7 @@ import com.pureshot.screenshot.core.Prefs
 import com.pureshot.screenshot.core.editor.ArrowKind
 import com.pureshot.screenshot.core.editor.EditDocument
 import com.pureshot.screenshot.core.editor.NumberElement
+import com.pureshot.screenshot.core.editor.NumberShape
 import com.pureshot.screenshot.core.editor.ShapeKind
 import com.pureshot.screenshot.core.editor.TextElement
 import com.pureshot.screenshot.core.export.ExportManager
@@ -219,7 +220,7 @@ class EditorFragment : Fragment() {
         when (tool) {
             Tool.CROP -> buildCropOptions()
             Tool.MOSAIC_RECT, Tool.MOSAIC_CIRCLE, Tool.MOSAIC_FREE, Tool.BLUR -> buildMosaicOptions()
-            Tool.NUMBER -> buildOptionsRow(sizeSeek = true, colorRow = true)
+            Tool.NUMBER -> buildNumberOptions()
             Tool.ARROW -> buildArrowOptions()
             Tool.SHAPE -> buildShapeOptions()
             Tool.TEXT -> buildOptionsRow(sizeSeek = true, colorRow = true)
@@ -277,17 +278,34 @@ class EditorFragment : Fragment() {
     }
 
     private fun buildShapeOptions() {
-        val row = horizontalRow()
+        val row = linearRow()
         row.addView(chipButton(R.string.shape_rect, canvas.shapeKind == ShapeKind.RECT) { canvas.shapeKind = ShapeKind.RECT; showOptions(Tool.SHAPE, false) })
+        row.addView(chipButton(R.string.shape_square, canvas.shapeKind == ShapeKind.SQUARE) { canvas.shapeKind = ShapeKind.SQUARE; showOptions(Tool.SHAPE, false) })
         row.addView(chipButton(R.string.shape_ellipse, canvas.shapeKind == ShapeKind.ELLIPSE) { canvas.shapeKind = ShapeKind.ELLIPSE; showOptions(Tool.SHAPE, false) })
+        row.addView(chipButton(R.string.shape_circle, canvas.shapeKind == ShapeKind.CIRCLE) { canvas.shapeKind = ShapeKind.CIRCLE; showOptions(Tool.SHAPE, false) })
         row.addView(chipButton(R.string.shape_line, canvas.shapeKind == ShapeKind.LINE) { canvas.shapeKind = ShapeKind.LINE; showOptions(Tool.SHAPE, false) })
         row.addView(chipButton(R.string.shape_polygon, canvas.shapeKind == ShapeKind.POLYGON) { canvas.shapeKind = ShapeKind.POLYGON; showOptions(Tool.SHAPE, false) })
         row.addView(chipButton(R.string.fill_on, canvas.fillEnabled) { canvas.fillEnabled = !canvas.fillEnabled; showOptions(Tool.SHAPE, false) })
-        optionsPanel.addView(row)
+        optionsPanel.addView(horizontalScroll(row))
         if (canvas.shapeKind == ShapeKind.POLYGON) {
             optionsPanel.addView(smallText(getString(R.string.polygon_finish)))
         }
         buildOptionsRow(widthSeek = true, colorRow = true)
+    }
+
+    private fun buildNumberOptions() {
+        val row = linearRow()
+        row.addView(chipButton(R.string.number_shape_round, canvas.numberShape == NumberShape.ROUND_RECT) {
+            canvas.numberShape = NumberShape.ROUND_RECT; showOptions(Tool.NUMBER, false)
+        })
+        row.addView(chipButton(R.string.number_shape_circle, canvas.numberShape == NumberShape.CIRCLE) {
+            canvas.numberShape = NumberShape.CIRCLE; showOptions(Tool.NUMBER, false)
+        })
+        row.addView(chipButton(R.string.number_shape_square, canvas.numberShape == NumberShape.SQUARE) {
+            canvas.numberShape = NumberShape.SQUARE; showOptions(Tool.NUMBER, false)
+        })
+        optionsPanel.addView(horizontalScroll(row))
+        buildOptionsRow(sizeSeek = true, colorRow = true)
     }
 
     private fun buildOptionsRow(

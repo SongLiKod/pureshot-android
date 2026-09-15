@@ -20,11 +20,13 @@ import com.pureshot.screenshot.core.editor.EditElement
 import com.pureshot.screenshot.core.editor.MosaicElement
 import com.pureshot.screenshot.core.editor.MosaicKind
 import com.pureshot.screenshot.core.editor.NumberElement
+import com.pureshot.screenshot.core.editor.NumberShape
 import com.pureshot.screenshot.core.editor.ShapeElement
 import com.pureshot.screenshot.core.editor.ShapeKind
 import com.pureshot.screenshot.core.editor.StrokeElement
 import com.pureshot.screenshot.core.editor.TextElement
 import com.pureshot.screenshot.core.editor.smoothPath
+import kotlin.math.abs
 import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
@@ -61,6 +63,7 @@ class LayerEditorView @JvmOverloads constructor(
     var arrowHead = Prefs.lastArrowHead
     var arrowKind = ArrowKind.SINGLE
     var shapeKind = ShapeKind.RECT
+    var numberShape = NumberShape.ROUND_RECT
     var fillEnabled = false
     var mosaicBlock = blockOf(Prefs.mosaicSize)
     var blurRadius = blurOf(Prefs.blurStrength)
@@ -320,7 +323,7 @@ class LayerEditorView @JvmOverloads constructor(
             }
             Tool.NUMBER -> {
                 d.pushHistory()
-                val el = NumberElement(PointF(p.x, p.y), d.nextNumber(), 36f * (textSize / 40f), color, Color.WHITE, textSize)
+                val el = NumberElement(PointF(p.x, p.y), d.nextNumber(), 36f * (textSize / 40f), color, Color.WHITE, textSize, numberShape)
                 d.elements.add(el)
                 onDocumentChanged?.invoke()
             }
@@ -351,9 +354,22 @@ class LayerEditorView @JvmOverloads constructor(
             Tool.MOSAIC_FREE -> (work as? MosaicElement)?.points?.add(PointF(p.x, p.y))
             Tool.PEN, Tool.HIGHLIGHTER -> (work as? StrokeElement)?.points?.add(PointF(p.x, p.y))
             Tool.ARROW -> (work as? ArrowElement)?.to = PointF(p.x, p.y)
-            Tool.SHAPE -> (work as? ShapeElement)?.let {
-                if (it.kind == ShapeKind.RECT || it.kind == ShapeKind.ELLIPSE || it.kind == ShapeKind.LINE) {
-                    it.points[1] = PointF(p.x, p.y)
+            Tool.SHAPE -> (work as? ShapeElement)?.let { s ->
+                when (s.kind) {
+                    ShapeKind.RECT, ShapeKind.ELLIPSE, ShapeKind.LINE -> {
+                        s.points[1] = PointF(p.x, p.y)
+                    }
+                    ShapeKind.SQUARE, ShapeKind.CIRCLE -> {
+                        // 方形/圆形：拖拽时等比锁定，保证四边等长
+                        val dx = p.x - downX
+                        val dy = p.y - downY
+                        val side = max(abs(dx), abs(dy))
+                        s.points[1] = PointF(
+                            downX + if (dx < 0f) -side else side,
+                            downY + if (dy < 0f) -side else side
+                        )
+                    }
+                    ShapeKind.POLYGON -> { /* 多边形逐点添加，无拖动预览 */ }
                 }
             }
             Tool.ERASER -> {

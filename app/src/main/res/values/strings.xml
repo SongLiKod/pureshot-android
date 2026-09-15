@@ -110,9 +110,14 @@
     <string name="arrow_single">单向箭头</string>
     <string name="arrow_double">双向箭头</string>
     <string name="shape_rect">矩形</string>
+    <string name="shape_square">方形</string>
     <string name="shape_ellipse">椭圆</string>
+    <string name="shape_circle">圆形</string>
     <string name="shape_line">直线</string>
     <string name="shape_polygon">多边形</string>
+    <string name="number_shape_round">圆角矩形</string>
+    <string name="number_shape_circle">圆形标签</string>
+    <string name="number_shape_square">方形标签</string>
     <string name="fill_on">半透明填充</string>
     <string name="fill_off">空心描边</string>
     <string name="polygon_finish">双击闭合多边形</string>

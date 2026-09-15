@@ -22,8 +22,9 @@ import kotlin.math.sin
  */
 
 enum class MosaicKind { RECT, CIRCLE, FREE, BLUR }
-enum class ShapeKind { RECT, ELLIPSE, LINE, POLYGON }
+enum class ShapeKind { RECT, SQUARE, ELLIPSE, CIRCLE, LINE, POLYGON }
 enum class ArrowKind { SINGLE, DOUBLE }
+enum class NumberShape { ROUND_RECT, CIRCLE, SQUARE }
 
 /** 标注默认强调色（全局唯一常量，对应 @color/anno_red） */
 const val ANNO_DEFAULT_COLOR: Int = 0xFFE53935.toInt()
@@ -175,7 +176,8 @@ class NumberElement(
     var radius: Float = 36f,
     var fillColor: Int = ANNO_DEFAULT_COLOR,
     var textColor: Int = Color.WHITE,
-    var textSize: Float = 40f
+    var textSize: Float = 40f,
+    var shape: NumberShape = NumberShape.ROUND_RECT
 ) : EditElement() {
 
     private val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -185,7 +187,11 @@ class NumberElement(
         bg.color = fillColor
         val r = radius
         val rect = RectF(center.x - r, center.y - r, center.x + r, center.y + r)
-        canvas.drawRoundRect(rect, r * 0.45f, r * 0.45f, bg)
+        when (shape) {
+            NumberShape.CIRCLE -> canvas.drawCircle(center.x, center.y, r, bg)
+            NumberShape.SQUARE -> canvas.drawRect(rect, bg)
+            NumberShape.ROUND_RECT -> canvas.drawRoundRect(rect, r * 0.45f, r * 0.45f, bg)
+        }
         tx.color = textColor
         tx.textSize = textSize
         val fm = tx.fontMetrics
@@ -212,11 +218,19 @@ class NumberElement(
         hypot((x - center.x).toDouble(), (y - center.y).toDouble()) <= radius * 1.3
 
     override fun deepCopy(): EditElement =
-        NumberElement(PointF(center.x, center.y), value, radius, fillColor, textColor, textSize)
+        NumberElement(PointF(center.x, center.y), value, radius, fillColor, textColor, textSize, shape)
 
     override fun toSvg(): String {
         val r = radius
-        return "<rect x=\"${center.x - r}\" y=\"${center.y - r}\" width=\"${2 * r}\" height=\"${2 * r}\" rx=\"${r * 0.45}\" fill=\"${hex(fillColor)}\"/>" +
+        val badge = when (shape) {
+            NumberShape.CIRCLE ->
+                "<circle cx=\"${center.x}\" cy=\"${center.y}\" r=\"$r\" fill=\"${hex(fillColor)}\"/>"
+            NumberShape.SQUARE ->
+                "<rect x=\"${center.x - r}\" y=\"${center.y - r}\" width=\"${2 * r}\" height=\"${2 * r}\" fill=\"${hex(fillColor)}\"/>"
+            NumberShape.ROUND_RECT ->
+                "<rect x=\"${center.x - r}\" y=\"${center.y - r}\" width=\"${2 * r}\" height=\"${2 * r}\" rx=\"${r * 0.45}\" fill=\"${hex(fillColor)}\"/>"
+        }
+        return badge +
             "<text x=\"${center.x}\" y=\"${center.y + textSize * 0.35f}\" font-size=\"$textSize\" fill=\"${hex(textColor)}\" text-anchor=\"middle\">$value</text>"
     }
 }
@@ -309,7 +323,7 @@ class ShapeElement(
         stroke.color = color; stroke.strokeWidth = width
         fillColor?.let { fillP.color = it }
         when (kind) {
-            ShapeKind.RECT -> {
+            ShapeKind.RECT, ShapeKind.SQUARE -> {
                 val r = rectOf()
                 if (fillColor != null) canvas.drawRect(r, fillP)
                 canvas.drawRect(r, stroke)
@@ -318,6 +332,14 @@ class ShapeElement(
                 val r = rectOf()
                 if (fillColor != null) canvas.drawOval(r, fillP)
                 canvas.drawOval(r, stroke)
+            }
+            ShapeKind.CIRCLE -> {
+                val r = rectOf()
+                val cx = r.centerX()
+                val cy = r.centerY()
+                val radius = min(r.width(), r.height()) / 2f
+                if (fillColor != null) canvas.drawCircle(cx, cy, radius, fillP)
+                canvas.drawCircle(cx, cy, radius, stroke)
             }
             ShapeKind.LINE -> {
                 if (points.size >= 2) canvas.drawLine(points[0].x, points[0].y, points[1].x, points[1].y, stroke)
@@ -370,13 +392,18 @@ class ShapeElement(
         val c = hex(color)
         val f = fillColor?.let { " fill=\"${hex(it)}\"" } ?: " fill=\"none\""
         return when (kind) {
-            ShapeKind.RECT -> {
+            ShapeKind.RECT, ShapeKind.SQUARE -> {
                 val r = rectOf()
                 "<rect x=\"${r.left}\" y=\"${r.top}\" width=\"${r.width()}\" height=\"${r.height()}\"$f stroke=\"$c\" stroke-width=\"$width\"/>"
             }
             ShapeKind.ELLIPSE -> {
                 val r = rectOf()
                 "<ellipse cx=\"${r.centerX()}\" cy=\"${r.centerY()}\" rx=\"${r.width() / 2}\" ry=\"${r.height() / 2}\"$f stroke=\"$c\" stroke-width=\"$width\"/>"
+            }
+            ShapeKind.CIRCLE -> {
+                val r = rectOf()
+                val rad = min(r.width(), r.height()) / 2f
+                "<circle cx=\"${r.centerX()}\" cy=\"${r.centerY()}\" r=\"$rad\"$f stroke=\"$c\" stroke-width=\"$width\"/>"
             }
             ShapeKind.LINE -> {
                 val a = points[0]; val b = points[1]
