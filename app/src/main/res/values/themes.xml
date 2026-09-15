@@ -7,6 +7,8 @@
         <item name="colorOnPrimaryContainer">@color/app_on_primary_container</item>
         <item name="colorSecondary">@color/app_secondary</item>
         <item name="colorOnSecondary">@color/app_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/app_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/app_on_secondary_container</item>
         <item name="android:colorBackground">@color/app_background</item>
         <item name="colorOnBackground">@color/app_on_background</item>
         <item name="colorSurface">@color/app_surface</item>

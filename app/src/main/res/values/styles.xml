@@ -17,6 +17,19 @@
         <item name="android:foreground">?attr/selectableItemBackground</item>
     </style>
 
+    <!-- 悬浮底部导航：选中项胶囊指示器 -->
+    <style name="Widget.PureShot.NavIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:width">64dp</item>
+        <item name="android:height">32dp</item>
+        <item name="marginHorizontal">4dp</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.PureShot.NavIndicator</item>
+    </style>
+
+    <style name="ShapeAppearance.PureShot.NavIndicator" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
     <!-- 区块标题 -->
     <style name="TextAppearance.PureShot.Section" parent="TextAppearance.Material3.LabelLarge">
         <item name="android:textSize">13sp</item>
