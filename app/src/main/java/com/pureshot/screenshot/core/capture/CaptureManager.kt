@@ -96,54 +96,55 @@ object CaptureManager {
     /**
      * 请求截图。
      * @param settleDelayMs 触发截图的界面（模式选择弹窗/提示对话框）关闭后的等待时间。
+     * @return true 表示已进入授权流程（调用方应保持前台，授权完成后由授权页自行退后台）；
+     *         false 表示已进入捕获流程（调用方可将自身任务退到后台，露出目标界面再截入画面）。
      */
-    fun request(ctx: Context, mode: CaptureMode, settleDelayMs: Long = 0L) {
+    fun request(ctx: Context, mode: CaptureMode, settleDelayMs: Long = 0L): Boolean {
         if (mode == CaptureMode.DELAY) {
-            startDelayed(ctx)
-            return
+            return startDelayed(ctx)
         }
         if (busy) {
             ErrorReporter.toastRes(ctx, com.pureshot.screenshot.R.string.capture_running)
-            return
+            return false
         }
         queue.addLast(mode to settleDelayMs)
         if (projection == null) {
-            // 首次（或已释放）：趁应用仍在前景立即拉起授权，规避后台启动限制
-            startConsentFlow(ctx)
-        } else {
-            // 会话复用：一点即截
-            idleHandler.removeCallbacks(idleRelease)
-            pump(ctx)
+            // 首次（或已释放）：趁应用仍在前景拉起授权（授权页与调用方同任务栈，结果可正常回传）
+            return startConsentFlow(ctx)
         }
+        // 会话复用：一点即截
+        idleHandler.removeCallbacks(idleRelease)
+        pump(ctx)
+        return false
     }
 
     /**
      * 延迟截图（Issue4）：倒计时结束后以全屏模式捕获。
-     * - 有悬浮窗：倒计时悬浮提示，结束后请求（SAW 豁免后台启动限制）；
+     * - 有悬浮窗：倒计时悬浮提示（桌面级窗口，退后台不影响），结束后请求；
      * - 无悬浮窗：立即在前景拉起授权（或复用会话），授权完成后再等待倒计时结束才捕获，
      *   期间用户可切换到目标界面。
      */
-    private fun startDelayed(ctx: Context) {
+    private fun startDelayed(ctx: Context): Boolean {
         val seconds = Prefs.delaySeconds.coerceIn(1, 30)
         if (android.provider.Settings.canDrawOverlays(ctx)) {
             CountdownOverlay.start(ctx, seconds)
-            return
+            return false
         }
         if (busy) {
             ErrorReporter.toastRes(ctx, com.pureshot.screenshot.R.string.capture_running)
-            return
+            return false
         }
         queue.addLast(CaptureMode.FULL to seconds * 1000L)
         if (projection == null) {
-            startConsentFlow(ctx)
-        } else {
-            idleHandler.removeCallbacks(idleRelease)
-            pump(ctx)
+            return startConsentFlow(ctx)
         }
+        idleHandler.removeCallbacks(idleRelease)
+        pump(ctx)
+        return false
     }
 
-    /** 拉起授权流程（调用方已入队）。失败时回滚队列并友好提示，不崩溃。 */
-    private fun startConsentFlow(ctx: Context) {
+    /** 拉起授权流程（调用方已入队）。失败时回滚队列并友好提示，不崩溃。成功返回 true。 */
+    private fun startConsentFlow(ctx: Context): Boolean {
         try {
             // Android14+ 要求：发起授权前必须先启动 mediaProjection 类型前台服务
             ctx.startForegroundService(
@@ -152,17 +153,19 @@ object CaptureManager {
         } catch (e: Throwable) {
             queue.clear()
             ErrorReporter.toastRes(ctx, com.pureshot.screenshot.R.string.capture_fail)
-            return
+            return false
         }
         try {
             ctx.startActivity(
                 Intent(ctx, PermissionActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
+            return true
         } catch (e: Throwable) {
             queue.clear()
             stopService(ctx)
             ErrorReporter.toastRes(ctx, com.pureshot.screenshot.R.string.capture_fail)
+            return false
         }
     }
 
@@ -299,13 +302,14 @@ object CaptureManager {
         if (projection != null) scheduleIdleRelease()
     }
 
-    fun release() {
+fun release() {
         if (keepSession) return
         idleHandler.removeCallbacks(idleRelease)
         try {
             projection?.stop()
         } catch (e: Throwable) { /* 容错 */ }
         projection = null
+        servicePrepared = false
         AppContext.get()?.let { stopService(it) }
     }
 
