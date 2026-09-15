@@ -38,6 +38,9 @@ object CaptureManager {
     var projection: MediaProjection? = null
         private set
 
+    /** 常驻捕获会话（同一授权内唯一 VirtualDisplay，避免重建显示触发部分 ROM 终止会话） */
+    private var session: CaptureSession? = null
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     /** 待执行队列：模式 + 该条目捕获前的额外等待（延迟截图/界面退场） */
     private val queue = ArrayDeque<Pair<CaptureMode, Long>>()
@@ -170,6 +173,13 @@ object CaptureManager {
             Log.d(TAG, "getMediaProjection ok: ${p != null}")
             p.registerCallback(projectionCallback, null)
             projection = p
+            // 建立常驻捕获会话（VirtualDisplay 仅创建一次，后续抓取复用，不再重建）
+            try {
+                val (w, h, dpi) = ScreenCapturer.displaySize(activity)
+                session = CaptureSession(p, w, h, dpi).also { it.open() }
+            } catch (e: Throwable) {
+                Log.e(TAG, "open capture session failed", e)
+            }
             // 授权已拿到：主任务退后台，让捕获到的是用户平时用的应用而不是净截自身
             try {
                 activity.moveTaskToBack(true)
@@ -197,6 +207,8 @@ object CaptureManager {
 
     fun onProjectionStopped() {
         projection = null
+        session?.close()
+        session = null
         queue.clear()
         keepSession = false
         idleHandler.removeCallbacks(idleRelease)
@@ -292,6 +304,16 @@ object CaptureManager {
         if (Prefs.romEnhanced) {
             RomEnhancedCapture.tryCapture(ctx)?.let { return it }
         }
+        val s = session
+        if (s != null) {
+            // 屏幕旋转等导致尺寸变化时重建显示
+            try {
+                val (w, h, dpi) = ScreenCapturer.displaySize(ctx)
+                if (s.isSizeChanged(w, h)) s.recreate(w, h)
+            } catch (e: Throwable) { /* 尺寸读取失败忽略 */ }
+            return s.snapshot()
+        }
+        // 会话未就绪（理论不应发生）时回退旧逐帧方案
         return ScreenCapturer.capture(ctx)
     }
 
@@ -310,6 +332,8 @@ object CaptureManager {
             projection?.stop()
         } catch (e: Throwable) { /* 容错 */ }
         projection = null
+        session?.close()
+        session = null
         AppContext.get()?.let { stopService(it) }
     }
 
