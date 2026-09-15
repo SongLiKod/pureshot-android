@@ -7,6 +7,8 @@
     <color name="app_on_primary_container">#CCF3E2</color>
     <color name="app_secondary">@color/brand_light_green</color>
     <color name="app_on_secondary">#00341D</color>
+    <color name="app_secondary_container">#1F4A36</color>
+    <color name="app_on_secondary_container">#CCF3E2</color>
     <color name="app_background">#121212</color>
     <color name="app_on_background">#FFFFFF</color>
     <color name="app_surface">#1E1F1E</color>
@@ -17,4 +19,9 @@
     <color name="app_divider">#333735</color>
     <color name="icon_tint">#B3FFFFFF</color>
     <color name="editor_canvas_bg">#121212</color>
+
+    <!-- 悬浮底部导航：半透明玻璃质感 -->
+    <color name="app_floating_surface_top">#F230332F</color>
+    <color name="app_floating_surface_bottom">#E61E1F1E</color>
+    <color name="app_floating_stroke">#33FFFFFF</color>
 </resources>
