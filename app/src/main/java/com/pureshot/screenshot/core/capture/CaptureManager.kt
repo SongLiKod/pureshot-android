@@ -8,6 +8,7 @@ import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import com.pureshot.screenshot.core.Prefs
 import com.pureshot.screenshot.core.util.ErrorReporter
 import com.pureshot.screenshot.ui.floating.FloatingBallService
@@ -24,11 +25,14 @@ enum class CaptureMode { FULL, APP, REGION, DELAY, LONG }
  * 捕获调度核心（Issue1）：按需申请媒体投影授权，单一 MediaProjection 引擎。
  *
  * 会话复用策略（一次点击即截图）：
- * - 首次截图弹出系统授权，之后投影保活复用，后续截图一点即截、无需再次授权；
+ * - 首次截图弹出系统授权（由独立的真实前台页 ConsentActivity 承载，结果就地创建投影）；
+ * - 之后投影保活复用，后续截图一点即截、无需再次授权；
  * - 空闲超过保活时长（设置可自定义，默认 5 分钟）自动释放；用户在系统托盘点「停止共享」立即释放；
  * - 长截图会话期间保持叠加窗隐藏，结束后继续保活至空闲超时。
  */
 object CaptureManager {
+
+    private const val TAG = "PureShot"
 
     @Volatile
     var projection: MediaProjection? = null
@@ -66,63 +70,11 @@ object CaptureManager {
         if (!busy && !keepSession) release()
     }
 
-    /** 前台服务 startForeground 完成标志（Android14 要求授权页必须在 FGS 就绪后拉起） */
-    @Volatile
-    private var servicePrepared = false
-    private val preparedCallbacks = mutableListOf<() -> Unit>()
-
-    /** 授权请求是否已在途（防止重复拉起授权页） */
-    @Volatile
-    private var consentPending = false
-
     /** 投影生命周期回调（用户从系统托盘停止共享时触发释放） */
     private val projectionCallback = object : MediaProjection.Callback() {
         override fun onStop() {
+            Log.d(TAG, "projection onStop")
             onProjectionStopped()
-        }
-    }
-
-    /** CaptureService 调用：startForeground 已完成，可以安全发起授权 */
-    fun onServicePrepared() {
-        servicePrepared = true
-        val callbacks = synchronized(preparedCallbacks) {
-            preparedCallbacks.toList().also { preparedCallbacks.clear() }
-        }
-        idleHandler.post { callbacks.forEach { it() } }
-    }
-
-    /** FGS 就绪后执行回调；已就绪立即执行，超时兜底防止流程挂起 */
-    fun whenPrepared(timeoutMs: Long = 2500L, callback: () -> Unit) {
-        if (servicePrepared) {
-            callback()
-            return
-        }
-        synchronized(preparedCallbacks) { preparedCallbacks.add(callback) }
-        idleHandler.postDelayed({
-            val pending = synchronized(preparedCallbacks) {
-                if (preparedCallbacks.remove(callback)) callback else null
-            }
-            pending?.invoke()
-        }, timeoutMs)
-    }
-
-    /**
-     * 由 MainActivity 调用：FGS 就绪后拉起系统授权页。
-     * 授权页从真实前台 Activity 拉起（非透明中转页），保证结果可靠回传。
-     */
-    fun launchConsent(activity: Activity, launcher: androidx.activity.result.ActivityResultLauncher<Intent>) {
-        if (consentPending) return
-        consentPending = true
-        whenPrepared {
-            consentPending = false
-            if (activity.isFinishing || activity.isDestroyed) return@whenPrepared
-            try {
-                val mgr = activity.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-                launcher.launch(mgr.createScreenCaptureIntent())
-            } catch (e: Throwable) {
-                queueAbandon()
-                ErrorReporter.toastRes(activity, com.pureshot.screenshot.R.string.capture_fail)
-            }
         }
     }
 
@@ -133,6 +85,7 @@ object CaptureManager {
      *         false 表示已进入捕获流程（调用方可将自身任务退到后台，露出目标界面再截入画面）。
      */
     fun request(ctx: Context, mode: CaptureMode, settleDelayMs: Long = 0L): Boolean {
+        Log.d(TAG, "request mode=$mode, busy=$busy, hasProjection=${projection != null}")
         if (mode == CaptureMode.DELAY) {
             return startDelayed(ctx)
         }
@@ -142,7 +95,6 @@ object CaptureManager {
         }
         queue.addLast(mode to settleDelayMs)
         if (projection == null) {
-            // 首次（或已释放）：趁应用仍在前景拉起授权（授权页与调用方同任务栈，结果可正常回传）
             return startConsentFlow(ctx)
         }
         // 会话复用：一点即截
@@ -154,7 +106,7 @@ object CaptureManager {
     /**
      * 延迟截图（Issue4）：倒计时结束后以全屏模式捕获。
      * - 有悬浮窗：倒计时悬浮提示（桌面级窗口，退后台不影响），结束后请求；
-     * - 无悬浮窗：立即在前景拉起授权（或复用会话），授权完成后再等待倒计时结束才捕获，
+     * - 无悬浮窗：立即拉起授权（或复用会话），授权完成后再等待倒计时结束才捕获，
      *   期间用户可切换到目标界面。
      */
     private fun startDelayed(ctx: Context): Boolean {
@@ -176,27 +128,29 @@ object CaptureManager {
         return false
     }
 
-    /** 拉起授权流程（调用方已入队）。失败时回滚队列并友好提示，不崩溃。成功返回 true。 */
+    /**
+     * 拉起授权流程（调用方已入队）。返回是否成功进入授权。
+     * 前台服务启动失败不阻断授权（Android<14 无需 FGS；Android14 会在创建虚拟屏时报错并可感知）。
+     */
     private fun startConsentFlow(ctx: Context): Boolean {
         try {
-            // Android14+ 要求：发起授权前必须先启动 mediaProjection 类型前台服务
+            // Android14+ 要求：发起授权前启动 mediaProjection 类型前台服务
             ctx.startForegroundService(
                 Intent(ctx, CaptureService::class.java).setAction(CaptureService.ACTION_PREPARE)
             )
         } catch (e: Throwable) {
-            queue.clear()
-            ErrorReporter.toastRes(ctx, com.pureshot.screenshot.R.string.capture_fail)
-            return false
+            Log.e(TAG, "start foreground service failed (non-fatal)", e)
         }
         try {
-            // 授权页从真实前台 Activity（MainActivity）拉起：结果回传可靠，兼容 MIUI 等 ROM
+            // 独立真实前台页承载授权：立即拉起，不依赖任何就绪信号，杜绝“点了没反应”
             ctx.startActivity(
-                Intent(ctx, com.pureshot.screenshot.MainActivity::class.java)
-                    .setAction(com.pureshot.screenshot.MainActivity.ACTION_REQUEST_CONSENT)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                Intent(ctx, ConsentActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
+            Log.d(TAG, "consent activity launched")
             return true
         } catch (e: Throwable) {
+            Log.e(TAG, "launch consent activity failed", e)
             queue.clear()
             stopService(ctx)
             ErrorReporter.toastRes(ctx, com.pureshot.screenshot.R.string.capture_fail)
@@ -205,16 +159,15 @@ object CaptureManager {
     }
 
     /**
-     * 由 MainActivity 在授权结果回调中调用：
+     * 由 ConsentActivity 在授权结果回调中调用：
      * 就地创建 MediaProjection（不跨组件嵌套传递授权令牌，规避 MIUI 等 ROM 兼容问题），
      * 并把主任务退到后台，露出目标界面后开始捕获。
      */
     fun onConsent(activity: Activity, resultCode: Int, data: Intent) {
-        consentPending = false
         try {
             val mgr = activity.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             val p = mgr.getMediaProjection(resultCode, data)
-            // API34 要求：createVirtualDisplay 前必须注册 Callback
+            Log.d(TAG, "getMediaProjection ok: ${p != null}")
             p.registerCallback(projectionCallback, null)
             projection = p
             // 授权已拿到：主任务退后台，让捕获到的是用户平时用的应用而不是净截自身
@@ -223,13 +176,14 @@ object CaptureManager {
             } catch (e: Throwable) { /* 容错 */ }
             onProjectionReady(p)
         } catch (e: Throwable) {
+            Log.e(TAG, "getMediaProjection failed", e)
             stopService(activity)
             queueAbandon()
             ErrorReporter.toastRes(activity, com.pureshot.screenshot.R.string.capture_fail)
         }
     }
 
-    fun onProjectionReady(p: MediaProjection) {
+    private fun onProjectionReady(p: MediaProjection) {
         projection = p
         val ctx = AppContext.get() ?: return
         // 队列为空（进程重启/用户已取消）：不保留投影，立即释放
@@ -245,7 +199,6 @@ object CaptureManager {
         projection = null
         queue.clear()
         keepSession = false
-        servicePrepared = false
         idleHandler.removeCallbacks(idleRelease)
         AppContext.get()?.let { stopService(it) }
     }
@@ -253,7 +206,6 @@ object CaptureManager {
     /** 用户取消授权：清空待执行队列并停止准备中的服务 */
     fun queueAbandon() {
         queue.clear()
-        servicePrepared = false
         AppContext.get()?.let { stopService(it) }
     }
 
@@ -274,9 +226,12 @@ object CaptureManager {
                     if (ballShown || previewShown) overlaysHidden = true
                     if (ballShown || previewShown) delay(OVERLAY_HIDE_SETTLE_MS)
                     try {
+                        Log.d(TAG, "capturing mode=$mode")
                         val full = captureWithEnhancement(ctx)
+                        Log.d(TAG, "captured ${full.width}x${full.height}")
                         handleResult(ctx, full, mode)
                     } catch (e: Throwable) {
+                        Log.e(TAG, "capture failed", e)
                         ErrorReporter.dialog(ctx, e)
                         ErrorReporter.toastRes(ctx, com.pureshot.screenshot.R.string.capture_fail)
                     } finally {
@@ -347,14 +302,14 @@ object CaptureManager {
         if (projection != null) scheduleIdleRelease()
     }
 
-fun release() {
+    fun release() {
         if (keepSession) return
+        Log.d(TAG, "release projection")
         idleHandler.removeCallbacks(idleRelease)
         try {
             projection?.stop()
         } catch (e: Throwable) { /* 容错 */ }
         projection = null
-        servicePrepared = false
         AppContext.get()?.let { stopService(it) }
     }
 

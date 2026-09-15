@@ -40,6 +40,7 @@ object ScreenCapturer {
         val (w, h, dpi) = displaySize(ctx)
         val projection = CaptureManager.projection
             ?: throw IllegalStateException("MediaProjection 未就绪")
+        android.util.Log.d("PureShot", "screen capture start: ${w}x$h dpi=$dpi")
         val reader = ImageReader.newInstance(w, h, android.graphics.PixelFormat.RGBA_8888, 2)
         var display: VirtualDisplay? = null
         val handler = Handler(Looper.getMainLooper())
@@ -47,6 +48,7 @@ object ScreenCapturer {
         val timeout = Runnable {
             if (!resumed) {
                 resumed = true
+                android.util.Log.e("PureShot", "screen capture timeout (no frame in 6s)")
                 reader.close()
                 display?.release()
                 cont.resumeWithException(IllegalStateException("捕获超时"))
@@ -60,11 +62,13 @@ object ScreenCapturer {
                 val bmp = fromImage(image)
                 image.close()
                 resumed = true
+                android.util.Log.d("PureShot", "screen capture frame ok: ${bmp.width}x${bmp.height}")
                 handler.removeCallbacks(timeout)
                 display?.release()
                 r.close()
                 cont.resume(bmp)
             } catch (e: Throwable) {
+                android.util.Log.e("PureShot", "screen capture frame parse failed", e)
                 image.close()
                 resumed = true
                 handler.removeCallbacks(timeout)
@@ -73,11 +77,22 @@ object ScreenCapturer {
                 cont.resumeWithException(e)
             }
         }, handler)
-        display = projection.createVirtualDisplay(
-            "pureshot-capture", w, h, dpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
-            reader.surface, null, null
-        )
+        try {
+            display = projection.createVirtualDisplay(
+                "pureshot-capture", w, h, dpi,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
+                reader.surface, null, null
+            )
+        } catch (e: Throwable) {
+            android.util.Log.e("PureShot", "createVirtualDisplay failed", e)
+            handler.removeCallbacks(timeout)
+            reader.close()
+            if (!resumed) {
+                resumed = true
+                cont.resumeWithException(e)
+            }
+            return@suspendCancellableCoroutine
+        }
         cont.invokeOnCancellation {
             if (!resumed) {
                 resumed = true

@@ -48,6 +48,7 @@
 
     <string name="capture_fail">截图失败，请重试</string>
     <string name="capture_cancelled">已取消截图</string>
+    <string name="capture_requesting_permission">正在请求屏幕截图权限…</string>
     <string name="capture_running">截图捕获中…</string>
     <string name="notif_capturing">净截截图保活中 · 一点即截，空闲超时自动退出</string>
 

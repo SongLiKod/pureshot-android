@@ -69,6 +69,14 @@
         </activity>
 
         <!-- 透明授权中转页：按需申请 MediaProjection，单次捕获 -->
+        <!-- 媒体投影授权页：真实不透明 Activity、与主任务同栈，保证结果可靠回传 -->
+        <activity
+            android:name=".core.capture.ConsentActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="standard"
+            android:theme="@style/Theme.PureShot" />
+
         <!-- 截图模式选择弹窗（磁贴/悬浮球触发） -->
         <activity
             android:name=".core.capture.ModeChooserActivity"
