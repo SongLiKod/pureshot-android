@@ -106,8 +106,10 @@ class HomeFragment : Fragment() {
     }
 
     /**
-     * 从应用自身界面发起截图：先把应用退到后台露出上一层界面，
-     * 待窗口切换完成后再捕获，避免把本应用界面（含底部导航）截入画面。
+     * 从应用自身界面发起截图：
+     * - 授权路径：CaptureManager 会立即拉起授权页（此时应用仍在前景，规避后台启动限制），
+     *   随后本应用退到后台，授权完成后露出上一层界面再捕获；
+     * - 极速路径：CaptureManager 内部延迟到本应用退场后才真正捕获。
      */
     private fun startFromApp(mode: CaptureMode) {
         val ctx = requireContext().applicationContext
@@ -115,8 +117,12 @@ class HomeFragment : Fragment() {
             CaptureManager.request(ctx, mode)
             return
         }
-        requireActivity().moveTaskToBack(true)
         CaptureManager.request(ctx, mode, CaptureManager.UI_DISMISS_SETTLE_MS)
+        // 延迟截图且无悬浮窗时保持前台：授权已在前景发起，倒计时期间用户可自行切换界面；
+        // 若此时退后台，后续拉起会被系统限制
+        if (mode != CaptureMode.DELAY || android.provider.Settings.canDrawOverlays(ctx)) {
+            requireActivity().moveTaskToBack(true)
+        }
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()

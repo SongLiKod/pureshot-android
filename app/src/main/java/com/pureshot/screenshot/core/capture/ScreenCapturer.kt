@@ -52,7 +52,7 @@ object ScreenCapturer {
                 cont.resumeWithException(IllegalStateException("捕获超时"))
             }
         }
-        handler.postDelayed(timeout, 4000)
+        handler.postDelayed(timeout, 6000)
         reader.setOnImageAvailableListener({ r ->
             if (resumed) return@setOnImageAvailableListener
             val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
@@ -75,7 +75,7 @@ object ScreenCapturer {
         }, handler)
         display = projection.createVirtualDisplay(
             "pureshot-capture", w, h, dpi,
-            DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION,
+            DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC,
             reader.surface, null, null
         )
         cont.invokeOnCancellation {
