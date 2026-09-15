@@ -35,5 +35,5 @@
     <color name="anno_white">#FFFFFF</color>
     <color name="anno_highlight">#55FFEB3B</color>
     <color name="preview_thumb_bg">#222222</color>
-    <color name="floating_ball_bg">#E6009458</color>
+    <color name="floating_ball_bg">#FF009458</color>
 </resources>

@@ -31,6 +31,10 @@ class FloatingBallService : Service() {
         private const val CHANNEL_ID = "floating_ball"
         private const val NOTIF_ID = 1002
 
+        /** 静止时半透明，触摸/拖动时恢复不透明，避免遮挡屏幕内容 */
+        private const val IDLE_ALPHA = 0.72f
+        private const val ACTIVE_ALPHA = 1f
+
         fun ensureRunning(ctx: Context) {
             if (!Settings.canDrawOverlays(ctx)) return
             try {
@@ -80,12 +84,13 @@ class FloatingBallService : Service() {
     private fun addBall() {
         try {
             wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-            val size = (44 * resources.displayMetrics.density).toInt()
+            val size = (36 * resources.displayMetrics.density).toInt()
             val view = ImageView(this).apply {
                 setImageResource(R.drawable.ic_ball)
                 setBackgroundResource(R.drawable.bg_floating_ball)
                 setPadding(size / 4, size / 4, size / 4, size / 4)
                 adjustViewBounds = true
+                alpha = IDLE_ALPHA
             }
             val params = WindowManager.LayoutParams(
                 size, size,
@@ -102,12 +107,13 @@ class FloatingBallService : Service() {
             var startX = 0
             var startY = 0
             var moved = false
-            view.setOnTouchListener { _, e ->
+            view.setOnTouchListener { v, e ->
                 when (e.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         downX = e.rawX; downY = e.rawY
                         startX = params.x; startY = params.y
                         moved = false
+                        v.animate().alpha(ACTIVE_ALPHA).setDuration(120).start()
                     }
                     MotionEvent.ACTION_MOVE -> {
                         val dx = e.rawX - downX
@@ -119,8 +125,9 @@ class FloatingBallService : Service() {
                             wm?.updateViewLayout(view, params)
                         }
                     }
-                    MotionEvent.ACTION_UP -> {
-                        if (!moved) {
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        v.animate().alpha(IDLE_ALPHA).setDuration(180).start()
+                        if (e.actionMasked == MotionEvent.ACTION_UP && !moved) {
                             startActivity(
                                 Intent(this, ModeChooserActivity::class.java)
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
