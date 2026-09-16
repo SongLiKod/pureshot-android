@@ -20,9 +20,14 @@ android {
         applicationId = "com.pureshot.screenshot"
         minSdk = 29
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "2.0.0"
         resourceConfigurations += listOf("zh-rCN")
+    }
+
+    // 版本号唯一来源：versionName / versionCode，二者经 BuildConfig 全局复用
+    buildFeatures {
+        buildConfig = true
     }
 
     signingConfigs {

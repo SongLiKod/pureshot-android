@@ -123,7 +123,8 @@ class SettingsFragment : Fragment() {
             }
             valueRow(
                 getString(R.string.keep_alive_title),
-                getString(R.string.keep_alive_fmt, Prefs.keepAliveMinutes)
+                getString(R.string.keep_alive_fmt, Prefs.keepAliveMinutes),
+                getString(R.string.keep_alive_value_fmt, Prefs.keepAliveMinutes)
             ) {
                 val options = intArrayOf(1, 3, 5, 10, 15, 30)
                 singleChoice(
@@ -457,6 +458,8 @@ class SettingsFragment : Fragment() {
             setTextColor(brand())
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
+            // 限制右侧取值宽度，避免过长取值挤压/遮挡左侧标题
+            maxWidth = (resources.displayMetrics.widthPixels * 0.5f).toInt()
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply { marginStart = dp(12) }
@@ -501,7 +504,7 @@ class SettingsFragment : Fragment() {
                 setTextColor(onSurface())
             })
             addView(TextView(requireContext()).apply {
-                text = getString(R.string.version_value, UpdateManager.currentVersion(requireContext()))
+                text = getString(R.string.version_value, UpdateManager.currentVersion())
                 textSize = 13f
                 setTextColor(brand())
                 setPadding(0, dp(4), 0, 0)
@@ -530,7 +533,7 @@ class SettingsFragment : Fragment() {
         val row = clickableRow()
         row.addView(titleBlock(getString(R.string.update_check_title), getString(R.string.update_check_desc)))
         row.addView(TextView(requireContext()).apply {
-            text = getString(R.string.version_value, UpdateManager.currentVersion(requireContext()))
+            text = getString(R.string.version_value, UpdateManager.currentVersion())
             textSize = 13f
             setTextColor(brand())
             layoutParams = LinearLayout.LayoutParams(
@@ -574,7 +577,7 @@ class SettingsFragment : Fragment() {
                 if (info == null) {
                     MaterialAlertDialogBuilder(requireContext())
                         .setTitle(R.string.update_latest)
-                        .setMessage(getString(R.string.update_latest_msg, UpdateManager.currentVersion(requireContext())))
+                        .setMessage(getString(R.string.update_latest_msg, UpdateManager.currentVersion()))
                         .setPositiveButton(R.string.ok, null)
                         .show()
                 } else {
