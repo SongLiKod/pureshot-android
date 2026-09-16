@@ -189,6 +189,7 @@
 
     <string name="delay_title">延迟截图时长</string>
     <string name="keep_alive_title">截图保活时长</string>
+    <string name="keep_alive_value_fmt">%1$d 分钟</string>
     <string name="keep_alive_fmt">截屏后 %1$d 分钟内一点即截、免授权弹窗；超时自动退出</string>
     <string name="acc_switch_title">无障碍自动滚动长截图</string>
     <string name="acc_switch_desc">可选功能：授权系统无障碍后启用，自动滚动拼接长截图。仅发送滚动手势，不读取任何界面内容。</string>

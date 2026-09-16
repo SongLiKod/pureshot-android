@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import com.pureshot.screenshot.BuildConfig
 import com.pureshot.screenshot.core.util.ErrorReporter
 import org.json.JSONObject
 import java.io.File
@@ -40,12 +41,8 @@ object UpdateManager {
         val sizeBytes: Long
     )
 
-    /** 当前已安装版本号（versionName） */
-    fun currentVersion(ctx: Context): String = try {
-        ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "1.0.0"
-    } catch (t: Throwable) {
-        "1.0.0"
-    }
+    /** 当前已安装版本号，唯一来源为 build.gradle.kts 的 versionName */
+    fun currentVersion(): String = BuildConfig.VERSION_NAME
 
     fun isOnline(ctx: Context): Boolean {
         return try {
@@ -71,7 +68,7 @@ object UpdateManager {
         val obj = JSONObject(httpGet(API_LATEST))
         val tag = obj.optString("tag_name").trim()
         val latestVersion = tag.removePrefix("v").removePrefix("V").trim()
-        if (latestVersion.isBlank() || compareVersion(latestVersion, currentVersion(ctx)) <= 0) return null
+        if (latestVersion.isBlank() || compareVersion(latestVersion, currentVersion()) <= 0) return null
 
         val notes = obj.optString("body", "").trim()
         val assets = obj.optJSONArray("assets")
