@@ -2,6 +2,7 @@
 <paths>
     <cache-path name="pending" path="pending/" />
     <cache-path name="shared" path="shared/" />
+    <cache-path name="update" path="update/" />
     <files-path name="files" path="." />
     <external-files-path name="ext" path="." />
 </paths>

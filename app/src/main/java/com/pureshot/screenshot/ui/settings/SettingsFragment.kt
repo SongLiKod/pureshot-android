@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -23,10 +24,13 @@ import com.pureshot.screenshot.core.Prefs
 import com.pureshot.screenshot.core.export.ExportManager
 import com.pureshot.screenshot.core.longshot.LongShotAccessibilityService
 import com.pureshot.screenshot.core.theme.ThemeManager
+import com.pureshot.screenshot.core.update.UpdateManager
 import com.pureshot.screenshot.core.util.ErrorReporter
 import com.pureshot.screenshot.core.util.PermissionUtil
 import com.pureshot.screenshot.core.util.RomUtils
 import com.pureshot.screenshot.ui.floating.FloatingBallService
+import java.io.File
+import java.util.Locale
 
 /**
  * 设置中心（Issue18）：主题 / 截图设置 / 编辑设置 / 导出设置 / 权限管理 / 关于，
@@ -37,6 +41,14 @@ class SettingsFragment : Fragment() {
     private lateinit var container: LinearLayout
     private var currentCard: LinearLayout? = null
     private var rowsInCard = 0
+
+    // 版本更新状态
+    private var updateChecking = false
+    private var updateDownloading = false
+    private var pendingApk: File? = null
+
+    @Volatile
+    private var downloadCancelled = false
 
     private val requestMedia = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
     private val requestNotif = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -65,6 +77,12 @@ class SettingsFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         refresh()
+        // 从「允许安装未知应用」授权页返回后，自动继续安装待安装的更新包
+        val apk = pendingApk
+        if (apk != null && apk.exists() && isAdded && UpdateManager.canRequestInstall(requireContext())) {
+            pendingApk = null
+            UpdateManager.install(requireContext(), apk)
+        }
     }
 
     private fun brand(): Int = ContextCompat.getColor(requireContext(), R.color.brand_primary)
@@ -298,6 +316,7 @@ class SettingsFragment : Fragment() {
         sectionTitle(getString(R.string.about_section))
         card {
             aboutCard()
+            updateRow()
         }
     }
 
@@ -482,7 +501,7 @@ class SettingsFragment : Fragment() {
                 setTextColor(onSurface())
             })
             addView(TextView(requireContext()).apply {
-                text = getString(R.string.version_value, "1.0.0")
+                text = getString(R.string.version_value, UpdateManager.currentVersion(requireContext()))
                 textSize = 13f
                 setTextColor(brand())
                 setPadding(0, dp(4), 0, 0)
@@ -502,6 +521,171 @@ class SettingsFragment : Fragment() {
             })
         })
         rowsInCard++
+    }
+
+    // ---------- 版本更新（关于模块，下载与安装全程在应用内） ----------
+
+    /** 关于卡片内的「检查更新」入口行 */
+    private fun updateRow() {
+        val row = clickableRow()
+        row.addView(titleBlock(getString(R.string.update_check_title), getString(R.string.update_check_desc)))
+        row.addView(TextView(requireContext()).apply {
+            text = getString(R.string.version_value, UpdateManager.currentVersion(requireContext()))
+            textSize = 13f
+            setTextColor(brand())
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { marginStart = dp(12) }
+        })
+        row.addView(chevron())
+        row.setOnClickListener { checkUpdate() }
+        addRow(row)
+    }
+
+    private fun checkUpdate() {
+        if (updateChecking || updateDownloading) return
+        val ctx = requireContext()
+        if (!UpdateManager.isOnline(ctx)) {
+            ErrorReporter.toast(ctx, getString(R.string.update_no_network))
+            return
+        }
+        updateChecking = true
+        val checkingBox = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(16), 0, 0)
+            addView(ProgressBar(ctx).apply {
+                isIndeterminate = true
+                layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
+            })
+        }
+        val dialog = MaterialAlertDialogBuilder(ctx)
+            .setTitle(R.string.update_checking)
+            .setView(checkingBox)
+            .setNegativeButton(R.string.cancel, null)
+            .create()
+        dialog.show()
+
+        UpdateManager.check(ctx) { result ->
+            updateChecking = false
+            if (!isAdded) return@check
+            if (dialog.isShowing) dialog.dismiss()
+            result.onSuccess { info ->
+                if (info == null) {
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle(R.string.update_latest)
+                        .setMessage(getString(R.string.update_latest_msg, UpdateManager.currentVersion(requireContext())))
+                        .setPositiveButton(R.string.ok, null)
+                        .show()
+                } else {
+                    showUpdateFound(info)
+                }
+            }.onFailure {
+                ErrorReporter.dialog(requireContext(), it)
+            }
+        }
+    }
+
+    private fun showUpdateFound(info: UpdateManager.UpdateInfo) {
+        val notes = info.notes.ifBlank { getString(R.string.update_no_notes) }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.update_found_title, info.version))
+            .setMessage(getString(R.string.update_notes_fmt, notes))
+            .setPositiveButton(R.string.update_now) { _, _ -> startDownload(info) }
+            .setNegativeButton(R.string.update_later, null)
+            .show()
+    }
+
+    private fun startDownload(info: UpdateManager.UpdateInfo) {
+        if (updateDownloading) return
+        updateDownloading = true
+        downloadCancelled = false
+        val ctx = requireContext()
+
+        val bar = ProgressBar(ctx, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            isIndeterminate = false
+        }
+        val progressText = TextView(ctx).apply {
+            text = getString(R.string.update_download_start)
+            textSize = 13f
+            setTextColor(muted())
+            setPadding(0, dp(8), 0, 0)
+        }
+        val box = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(16), dp(24), 0)
+            addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            addView(progressText)
+        }
+
+        val dialog = MaterialAlertDialogBuilder(ctx)
+            .setTitle(R.string.update_downloading)
+            .setView(box)
+            .setNegativeButton(R.string.cancel) { _, _ -> downloadCancelled = true }
+            .setCancelable(false)
+            .create()
+        dialog.show()
+
+        UpdateManager.download(
+            ctx, info,
+            onProgress = { downloaded, total ->
+                if (!isAdded || !dialog.isShowing) return@download
+                val pct = if (total > 0) ((downloaded * 100) / total).toInt().coerceIn(0, 100) else 0
+                bar.progress = pct
+                progressText.text = getString(
+                    R.string.update_download_progress, pct, bytes(downloaded), bytes(total)
+                )
+            },
+            isCancelled = { downloadCancelled },
+            onDone = { apk ->
+                updateDownloading = false
+                if (dialog.isShowing) dialog.dismiss()
+                if (isAdded) afterDownloaded(apk)
+            },
+            onCancelled = {
+                updateDownloading = false
+                if (dialog.isShowing) dialog.dismiss()
+                if (isAdded) ErrorReporter.toast(requireContext(), getString(R.string.update_cancelled))
+            },
+            onError = { e ->
+                updateDownloading = false
+                if (dialog.isShowing) dialog.dismiss()
+                if (isAdded) ErrorReporter.dialog(requireContext(), e)
+            })
+    }
+
+    /** 下载完成后在应用内直接调起安装；缺少安装权限时引导授权，返回后自动续接。 */
+    private fun afterDownloaded(apk: File) {
+        val ctx = requireContext()
+        if (UpdateManager.canRequestInstall(ctx)) {
+            UpdateManager.install(ctx, apk)
+        } else {
+            pendingApk = apk
+            MaterialAlertDialogBuilder(ctx)
+                .setTitle(R.string.update_install_perm_title)
+                .setMessage(R.string.update_install_perm_msg)
+                .setPositiveButton(R.string.update_go_grant) { _, _ ->
+                    try {
+                        startActivity(UpdateManager.installPermissionIntent(ctx))
+                    } catch (e: Throwable) {
+                        ErrorReporter.dialog(ctx, e)
+                    }
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        }
+    }
+
+    private fun bytes(v: Long): String {
+        if (v <= 0L) return "0 B"
+        val kb = 1024.0
+        val mb = kb * 1024
+        return when {
+            v >= mb -> String.format(Locale.US, "%.1f MB", v / mb)
+            v >= kb -> String.format(Locale.US, "%.0f KB", v / kb)
+            else -> "$v B"
+        }
     }
 
     private fun LinearLayout.makeClickable(action: () -> Unit) {
