@@ -19,7 +19,13 @@
     <!-- 后台保活：厂商电池优化友好引导 -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
-    <!-- 明确不申请：麦克风、位置、通讯录、网络、广告追踪等一切无关权限 -->
+    <!-- 仅用于「关于-检查更新」：在应用内检查并下载新版本，不采集、不上传任何用户数据 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- 应用内自更新：安装下载好的新版本 APK -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- 明确不申请：麦克风、位置、通讯录、广告追踪等一切无关权限 -->
 
     <queries>
         <package android:name="com.android.settings" />

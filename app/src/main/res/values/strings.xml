@@ -29,8 +29,26 @@
     <string name="home_shortcut_title">快捷开关</string>
     <string name="about_section">关于</string>
     <string name="about_device_label">设备 ROM</string>
-    <string name="about_disclaimer">纯净无广告的本地截图工具，不联网、不上传、不收集任何数据。</string>
+    <string name="about_disclaimer">纯净无广告的本地截图工具，不采集、不上传任何用户数据；网络仅用于检查并下载版本更新，全程在应用内完成。</string>
     <string name="version_value">v%1$s</string>
+    <string name="update_check_title">检查更新</string>
+    <string name="update_check_desc">在应用内检查、下载并安装新版本</string>
+    <string name="update_checking">正在检查更新…</string>
+    <string name="update_latest">已是最新版本</string>
+    <string name="update_latest_msg">当前版本 v%1$s 已是最新，无需更新。</string>
+    <string name="update_found_title">发现新版本 v%1$s</string>
+    <string name="update_no_notes">本次更新暂无详细说明。</string>
+    <string name="update_notes_fmt">更新内容：\n%1$s</string>
+    <string name="update_now">立即更新</string>
+    <string name="update_later">稍后再说</string>
+    <string name="update_downloading">正在下载新版本…</string>
+    <string name="update_download_progress">%1$d%%（%2$s / %3$s）</string>
+    <string name="update_download_start">正在准备下载…</string>
+    <string name="update_cancelled">已取消更新</string>
+    <string name="update_install_perm_title">需要安装权限</string>
+    <string name="update_install_perm_msg">首次在应用内安装更新需授权「允许安装未知应用」。授权后返回本应用即可自动继续安装。</string>
+    <string name="update_go_grant">去授权</string>
+    <string name="update_no_network">网络不可用，请检查网络后重试</string>
 
     <string name="gallery_select">选择</string>
     <string name="gallery_gif">合成 GIF</string>
