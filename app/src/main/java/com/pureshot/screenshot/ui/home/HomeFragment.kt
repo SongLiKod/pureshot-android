@@ -11,23 +11,25 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.card.MaterialCardView
-import com.google.android.material.chip.ChipGroup
+import com.google.android.material.materialswitch.MaterialSwitch
 import com.pureshot.screenshot.R
 import com.pureshot.screenshot.core.Prefs
 import com.pureshot.screenshot.core.capture.CaptureManager
 import com.pureshot.screenshot.core.capture.CaptureMode
-import com.pureshot.screenshot.core.theme.ThemeManager
 import com.pureshot.screenshot.core.util.FoldableUtil
+import com.pureshot.screenshot.core.util.PermissionUtil
 import com.pureshot.screenshot.core.util.RomUtils
+import com.pureshot.screenshot.ui.floating.FloatingBallService
 import com.pureshot.screenshot.ui.settings.Dialogs
 
 /**
- * 首页：五大截图模式入口 + 三主题切换 + ROM 识别信息。
+ * 首页：五大截图模式入口 + 悬浮球快捷开关。
  * 折叠屏适配：展开态双列网格，半开/折叠切换实时重排。
  */
 class HomeFragment : Fragment() {
 
     private lateinit var modeContainer: LinearLayout
+    private var ballSwitch: MaterialSwitch? = null
     private var columns = 1
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, s: Bundle?): View =
@@ -36,32 +38,48 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, s: Bundle?) {
         modeContainer = view.findViewById(R.id.mode_container)
         buildModes()
-
-        val group = view.findViewById<ChipGroup>(R.id.theme_group)
-        group.check(
-            when (Prefs.themeMode) {
-                ThemeManager.MODE_LIGHT -> R.id.chip_theme_light
-                ThemeManager.MODE_DARK -> R.id.chip_theme_dark
-                else -> R.id.chip_theme_system
-            }
-        )
-        group.setOnCheckedStateChangeListener { _, ids ->
-            val mode = when (ids.firstOrNull()) {
-                R.id.chip_theme_light -> ThemeManager.MODE_LIGHT
-                R.id.chip_theme_dark -> ThemeManager.MODE_DARK
-                else -> ThemeManager.MODE_SYSTEM
-            }
-            ThemeManager.setMode(mode)
-        }
-
-        view.findViewById<TextView>(R.id.rom_info).text = RomUtils.romName()
-        view.findViewById<TextView>(R.id.about_version).text =
-            getString(R.string.version_value, "1.0.0")
+        buildShortcuts(view)
 
         // 折叠形态变化 → 重排网格
         FoldableUtil.observeFolding(requireActivity(), viewLifecycleOwner.lifecycleScope) {
             val newCols = FoldableUtil.homeColumns(requireContext())
             if (newCols != columns) buildModes()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        syncBallSwitch()
+    }
+
+    private fun buildShortcuts(view: View) {
+        ballSwitch = view.findViewById<MaterialSwitch>(R.id.switch_floating_ball).apply {
+            setOnCheckedChangeListener { _, checked -> onBallToggled(checked) }
+        }
+        syncBallSwitch()
+    }
+
+    private fun syncBallSwitch() {
+        ballSwitch?.isChecked = Prefs.floatingBall && PermissionUtil.hasOverlay(requireContext())
+    }
+
+    private fun onBallToggled(checked: Boolean) {
+        when {
+            !checked -> {
+                Prefs.floatingBall = false
+                FloatingBallService.stop(requireContext())
+            }
+            !PermissionUtil.hasOverlay(requireContext()) -> {
+                Prefs.floatingBall = false
+                syncBallSwitch()
+                try {
+                    startActivity(PermissionUtil.overlayIntent(requireContext()))
+                } catch (e: Throwable) { /* 容错 */ }
+            }
+            else -> {
+                Prefs.floatingBall = true
+                FloatingBallService.ensureRunning(requireContext())
+            }
         }
     }
 

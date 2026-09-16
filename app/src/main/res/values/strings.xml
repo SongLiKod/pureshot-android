@@ -26,9 +26,10 @@
     <string name="theme_system">跟随系统</string>
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>
+    <string name="home_shortcut_title">快捷开关</string>
     <string name="about_section">关于</string>
     <string name="about_device_label">设备 ROM</string>
-    <string name="about_version_label">应用版本</string>
+    <string name="about_disclaimer">纯净无广告的本地截图工具，不联网、不上传、不收集任何数据。</string>
     <string name="version_value">v%1$s</string>
 
     <string name="gallery_select">选择</string>
