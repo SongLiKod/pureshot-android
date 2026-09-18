@@ -63,8 +63,11 @@ class CaptureService : Service() {
             }
             Log.d(TAG, "capture service foreground ok")
         } catch (e: Throwable) {
-            // 前台服务启动失败不崩溃：授权流程照常进行（Android<14 无 FGS 也可截图）
-            Log.e(TAG, "startForeground failed (non-fatal)", e)
+            // 前台化失败（部分 ROM 对 mediaProjection 类型有额外限制）：
+            // 必须立即自停，否则 startForegroundService 启动的服务未成功 startForeground，
+            // 系统会在数秒后以 RemoteServiceException 杀死进程（表现为点击后闪退）
+            Log.e(TAG, "startForeground failed, stop self to avoid fgs-timeout kill", e)
+            stopSelf()
         }
     }
 }

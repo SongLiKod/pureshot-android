@@ -13,11 +13,13 @@ import com.pureshot.screenshot.core.Prefs
 import com.pureshot.screenshot.core.util.ErrorReporter
 import com.pureshot.screenshot.ui.floating.FloatingBallService
 import com.pureshot.screenshot.ui.preview.FloatingPreview
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentLinkedDeque
 
 enum class CaptureMode { FULL, APP, REGION, DELAY, LONG }
 
@@ -41,9 +43,16 @@ object CaptureManager {
     /** 常驻捕获会话（同一授权内唯一 VirtualDisplay，避免重建显示触发部分 ROM 终止会话） */
     private var session: CaptureSession? = null
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    /** 待执行队列：模式 + 该条目捕获前的额外等待（延迟截图/界面退场） */
-    private val queue = ArrayDeque<Pair<CaptureMode, Long>>()
+    /** 捕获协程兜底：任何未捕获异常只提示、不崩进程（协程未捕获异常默认会杀死应用） */
+    private val captureGuard = CoroutineExceptionHandler { _, e ->
+        Log.e(TAG, "capture coroutine uncaught", e)
+        AppContext.get()?.let { ErrorReporter.toastRes(it, com.pureshot.screenshot.R.string.capture_fail) }
+    }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + captureGuard)
+    /** 待执行队列：模式 + 该条目捕获前的额外等待（延迟截图/界面退场）。
+     *  线程安全队列：主线程（授权回调/磁贴/悬浮球入队、投影终止清队）与捕获协程并发访问 */
+    private val queue = ConcurrentLinkedDeque<Pair<CaptureMode, Long>>()
 
     /** 授权完成后等待「共享屏幕」弹窗关闭与系统 Toast 消散，避免残影入画 */
     private const val CONSENT_SETTLE_MS = 1200L
@@ -228,8 +237,9 @@ object CaptureManager {
         scope.launch {
             try {
                 if (afterConsent) delay(CONSENT_SETTLE_MS)
-                while (queue.isNotEmpty()) {
-                    val (mode, waitMs) = queue.removeFirst()
+                while (true) {
+                    // 投影被 ROM 中途终止时主线程会 clear 队列，用 poll 原子取用避免竞态
+                    val (mode, waitMs) = queue.pollFirst() ?: break
                     if (waitMs > 0L) delay(waitMs)
                     val ballShown = FloatingBallService.isBallShown()
                     val previewShown = FloatingPreview.isShown()
@@ -250,6 +260,10 @@ object CaptureManager {
                         if (!keepSession) restoreOverlays()
                     }
                 }
+            } catch (e: Throwable) {
+                // 循环级异常兜底（如投影被 ROM 中途终止引发的连锁状态变化），只提示不崩进程
+                Log.e(TAG, "capture loop failed", e)
+                ErrorReporter.toastRes(ctx, com.pureshot.screenshot.R.string.capture_fail)
             } finally {
                 busy = false
                 if (!keepSession) {

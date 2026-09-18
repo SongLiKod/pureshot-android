@@ -28,7 +28,8 @@ class RegionCaptureActivity : AppCompatActivity() {
                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
             )
         val path = intent.getStringExtra(EXTRA_PATH)
-        val full = CacheStore.load(this, path, 8192)
+        // 4096 上限：物理屏幕最大分辨率内全采样，超出才降采样，降低低端机大图解码 OOM 概率
+        val full = CacheStore.load(this, path, 4096)
         if (full == null) {
             ErrorReporter.toastRes(this, R.string.capture_fail)
             finish()

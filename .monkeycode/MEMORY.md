@@ -29,6 +29,16 @@ Entries discovered by the Agent during task execution should follow this format:
 - When merging, update the context or date information.
 - This helps avoid redundant entries and keeps the memory file tidy.
 
+[Project Knowledge Summary]
+- Date: 2026-09-18
+- Context: Discovered by Agent while troubleshooting「点击区域截图闪退」(MIUI/HyperOS, 悬浮球入口)
+- Category: Troubleshooting & Debugging
+- Instructions:
+  - 本应用闪退排查优先看两类机制：① 捕获协程（CaptureManager.pump）内未捕获异常会直接杀死进程（Kotlin 协程默认行为）；② startForegroundService 启动的 CaptureService 若 startForeground 抛异常被吞且未 stopSelf，系统约 5 秒后以 RemoteServiceException 杀进程。
+  - MIUI/澎湃对 MediaProjection 会话管控严格：第二次抓帧（setSurface 换绑）可能触发投影终止，onStop 回调在主线程 clear 队列，与捕获协程并发操作队列必须用线程安全队列（已改 ConcurrentLinkedDeque）。
+  - 区域截图链路：capture → CacheStore 落盘 → startActivity(RegionCaptureActivity) → 加载底图；选区页秒关（闪一下）= 底图 decodeSampled 返回 null（文件缺失或 OOM），查缓存目录 pending/ 下文件。
+  - 若用户反馈仍闪退，需索取 logcat（adb logcat -b crash）或 MIUI「服务与反馈」崩溃记录再定位。
+
 ## Entries
 
 [Project Knowledge Summary]
